@@ -98,7 +98,7 @@ extern "C" {
 
 class FLACImportFileHandle;
 
-class MyFLACFile : public FLAC::Decoder::File
+class MyFLACFile final : public FLAC::Decoder::File
 {
  public:
    MyFLACFile(FLACImportFileHandle *handle) : mFile(handle)
@@ -126,7 +126,7 @@ class MyFLACFile : public FLAC::Decoder::File
 };
 
 
-class FLACImportPlugin : public ImportPlugin
+class FLACImportPlugin final : public ImportPlugin
 {
  public:
    FLACImportPlugin():
@@ -138,11 +138,11 @@ class FLACImportPlugin : public ImportPlugin
 
    wxString GetPluginStringID() { return wxT("libflac"); }
    wxString GetPluginFormatDescription();
-   ImportFileHandle *Open(wxString Filename);
+   ImportFileHandle *Open(const wxString &Filename)  override;
 };
 
 
-class FLACImportFileHandle : public ImportFileHandle
+class FLACImportFileHandle final : public ImportFileHandle
 {
    friend class MyFLACFile;
 public:
@@ -289,7 +289,7 @@ wxString FLACImportPlugin::GetPluginFormatDescription()
 }
 
 
-ImportFileHandle *FLACImportPlugin::Open(wxString filename)
+ImportFileHandle *FLACImportPlugin::Open(const wxString &filename)
 {
    // First check if it really is a FLAC file
 
@@ -348,7 +348,7 @@ bool FLACImportFileHandle::Init()
    ODFlacDecoder* odDecoder = (ODFlacDecoder*)mDecoderTask->CreateFileDecoder(mFilename);
    if(!odDecoder || !odDecoder->ReadHeader())
    {
-      //delete the task only if it failed to read - otherwise the OD man takes care of it.
+      //DELETE the task only if it failed to read - otherwise the OD man takes care of it.
       delete mDecoderTask;
       return false;
    }
@@ -550,7 +550,7 @@ int FLACImportFileHandle::Import(TrackFactory *trackFactory,
 
 FLACImportFileHandle::~FLACImportFileHandle()
 {
-   //don't delete mFile if we are using OD.
+   //don't DELETE mFile if we are using OD.
 #ifndef EXPERIMENTAL_OD_FLAC
    mFile->finish();
    delete mFile;

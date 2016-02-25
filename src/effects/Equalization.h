@@ -82,7 +82,7 @@ WX_DECLARE_OBJARRAY( EQCurve, EQCurveArray );
 class EffectEqualization48x;
 #endif
 
-class EffectEqualization : public Effect,
+class EffectEqualization final : public Effect,
                            public XMLTagHandler
 {
 public:
@@ -141,11 +141,11 @@ private:
    void EnvelopeUpdated(Envelope *env, bool lin);
    bool IsLinear();
 
-   void LoadCurves(wxString fileName = wxT(""), bool append = false);
-   void SaveCurves(wxString fileName = wxT(""));
+   void LoadCurves(const wxString &fileName = wxEmptyString, bool append = false);
+   void SaveCurves(const wxString &fileName = wxEmptyString);
    void Select(int sel);
    void setCurve(int currentCurve);
-   void setCurve(wxString curveName);
+   void setCurve(const wxString &curveName);
    void setCurve(void);
    
    // XMLTagHandler callback methods for loading and saving
@@ -269,7 +269,7 @@ private:
    friend class EditCurvesDialog;
 };
 
-class EqualizationPanel: public wxPanel
+class EqualizationPanel final : public wxPanel
 {
 public:
    EqualizationPanel(EffectEqualization *effect, wxWindow *parent);
@@ -320,7 +320,7 @@ private:
 
 // EditCurvesDialog.  Note that the 'modified' curve used to be called 'custom' but is now called 'unnamed'
 // Some things that deal with 'unnamed' curves still use, for example, 'mCustomBackup' as variable names.
-class EditCurvesDialog : public wxDialog
+class EditCurvesDialog final : public wxDialog
 {
 public:
    EditCurvesDialog(wxWindow * parent, EffectEqualization * effect, int position);
@@ -364,10 +364,10 @@ private:
 
 #if wxUSE_ACCESSIBILITY
 
-class SliderAx: public wxWindowAccessible
+class SliderAx final : public wxWindowAccessible
 {
 public:
-   SliderAx(wxWindow * window, wxString fmt);
+   SliderAx(wxWindow * window, const wxString &fmt);
 
    virtual ~ SliderAx();
 

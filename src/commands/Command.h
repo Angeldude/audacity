@@ -57,12 +57,12 @@ public:
 };
 
 // Interface
-class Command
+class Command /* not final */
 {
 public:
    virtual void Progress(double completed) = 0;
-   virtual void Status(wxString message) = 0;
-   virtual void Error(wxString message) = 0;
+   virtual void Status(const wxString &message) = 0;
+   virtual void Error(const wxString &message) = 0;
    virtual ~Command() { }
    virtual wxString GetName() = 0;
    virtual CommandSignature &GetSignature() = 0;
@@ -71,14 +71,14 @@ public:
 };
 
 // Command which wraps another command
-class DecoratedCommand : public Command
+class DecoratedCommand /* not final */ : public Command
 {
 protected:
    Command *mCommand;
 public:
    virtual void Progress(double completed);
-   virtual void Status(wxString message);
-   virtual void Error(wxString message);
+   virtual void Status(const wxString &message) override;
+   virtual void Error(const wxString &message) override;
 
    DecoratedCommand(Command *cmd)
       : mCommand(cmd)
@@ -94,7 +94,7 @@ public:
 
 // Decorator command that performs the given command and then outputs a status
 // message according to the result
-class ApplyAndSendResponse : public DecoratedCommand
+class ApplyAndSendResponse final : public DecoratedCommand
 {
 public:
    ApplyAndSendResponse(Command *cmd)
@@ -104,7 +104,7 @@ public:
    virtual bool Apply(CommandExecutionContext context);
 };
 
-class CommandImplementation : public Command
+class CommandImplementation /* not final */ : public Command
 {
 private:
    CommandType &mType;
@@ -130,8 +130,8 @@ protected:
 public:
    // Convenience methods for passing messages to the output target
    void Progress(double completed);
-   void Status(wxString status);
-   void Error(wxString message);
+   void Status(const wxString &status) override;
+   void Error(const wxString &message) override;
 
    /// Constructor should not be called directly; only by a factory which
    /// ensures name and params are set appropriately for the command.

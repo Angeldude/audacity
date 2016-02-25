@@ -56,7 +56,7 @@ existing bitmap can be used for waveform images. Audacity also
 draws directly to the screen to update the time indicator during
 playback. To move the indicator, one column of pixels is drawn to
 the screen to remove the indicator. Then the indicator is drawn at
-a new time location.
+a NEW time location.
 
 The track panel consists of many components. The tree of calls that
 update the bitmap looks like this:
@@ -783,7 +783,7 @@ void TrackArtist::UpdateVRuler(Track *t, wxRect & rect)
                   const float extreme = LINEAR_TO_DB(2);
                   // recover dB value of max
                   const float dB = std::min(extreme, (float(fabs(max)) * lastdBRange - lastdBRange));
-                  // find new scale position, but old max may get trimmed if the db limit rises
+                  // find NEW scale position, but old max may get trimmed if the db limit rises
                   // Don't trim it to zero though, but leave max and limit distinct
                   newMax = sign * std::max(ZOOMLIMIT, (dBRange + dB) / dBRange);
                   // Adjust the min of the scale if we can,
@@ -1585,61 +1585,61 @@ struct ClipParameters
       hiddenMid = rect;
 
       // If the left edge of the track is to the right of the left
-      // edge of the display, then there's some blank area to the
+      // edge of the display, then there's some unused area to the
       // left of the track.  Reduce the "hiddenMid"
       hiddenLeftOffset = 0;
       if (tpre < 0) {
-         hiddenLeftOffset = std::min(rect.width, int(
-            zoomInfo.TimeToPosition(tOffset, 0
-               , true
-            )
-         ));
+         // Fix Bug #1296 caused by premature conversion to (int).
+         wxInt64 time64 = zoomInfo.TimeToPosition(tOffset, 0 , true);
+         if( time64 < 0 )
+            time64 = 0;
+         hiddenLeftOffset = (time64 < rect.width) ? (int)time64 : rect.width;
+
          hiddenMid.x += hiddenLeftOffset;
          hiddenMid.width -= hiddenLeftOffset;
       }
 
       // If the right edge of the track is to the left of the the right
-      // edge of the display, then there's some blank area to the right
+      // edge of the display, then there's some unused area to the right
       // of the track.  Reduce the "hiddenMid" rect by the
       // size of the blank area.
       if (tpost > t1) {
-         const int hiddenRightOffset = std::min(rect.width, int(
-            zoomInfo.TimeToPosition(tOffset + t1, 0
-               , true
-            )
-         ));
+         wxInt64 time64 = zoomInfo.TimeToPosition(tOffset+t1, 0 , true);
+         if( time64 < 0 )
+            time64 = 0;
+         const int hiddenRightOffset = (time64 < rect.width) ? (int)time64 : rect.width;
+
          hiddenMid.width = std::max(0, hiddenRightOffset - hiddenLeftOffset);
       }
-
       // The variable "mid" will be the rectangle containing the
       // actual waveform, as distorted by the fisheye,
       // as opposed to any blank area before or after the track.
       mid = rect;
 
       // If the left edge of the track is to the right of the left
-      // edge of the display, then there's some blank area to the
-      // left of the track.  Reduce the "hiddenMid"
+      // edge of the display, then there's some unused area to the
+      // left of the track.  Reduce the "mid"
       leftOffset = 0;
       if (tpre < 0) {
-         leftOffset = std::min(rect.width, int(
-            zoomInfo.TimeToPosition(tOffset, 0
-               , false
-            )
-         ));
+         wxInt64 time64 = zoomInfo.TimeToPosition(tOffset, 0 , false);
+         if( time64 < 0 )
+            time64 = 0;
+         leftOffset = (time64 < rect.width) ? (int)time64 : rect.width;
+
          mid.x += leftOffset;
          mid.width -= leftOffset;
       }
 
       // If the right edge of the track is to the left of the the right
-      // edge of the display, then there's some blank area to the right
-      // of the track.  Reduce the "hiddenMid" rect by the
+      // edge of the display, then there's some unused area to the right
+      // of the track.  Reduce the "mid" rect by the
       // size of the blank area.
       if (tpost > t1) {
-         const int distortedRightOffset = std::min(rect.width, int(
-            zoomInfo.TimeToPosition(tOffset + t1, 0
-               , false
-            )
-         ));
+         wxInt64 time64 = zoomInfo.TimeToPosition(tOffset+t1, 0 , false);
+         if( time64 < 0 )
+            time64 = 0;
+         const int distortedRightOffset = (time64 < rect.width) ? (int)time64 : rect.width;
+
          mid.width = std::max(0, distortedRightOffset - leftOffset);
       }
    }
@@ -2162,10 +2162,10 @@ void TrackArtist::DrawClipSpectrum(WaveTrackCache &waveTrackCache,
    // and then paint this directly to our offscreen
    // bitmap.  Note that this could be optimized even
    // more, but for now this is not bad.  -dmazzoni
-   wxImage *image = new wxImage((int)mid.width, (int)mid.height);
-   if (!image)
+   wxImage image((int)mid.width, (int)mid.height);
+   if (!image.IsOk())
       return;
-   unsigned char *data = image->GetData();
+   unsigned char *data = image.GetData();
 
    const int half = settings.GetFFTLength() / 2;
    const double binUnit = rate / (2 * half);
@@ -2471,7 +2471,7 @@ void TrackArtist::DrawClipSpectrum(WaveTrackCache &waveTrackCache,
       } // each yy
    } // each xx
 
-   wxBitmap converted = wxBitmap(*image);
+   wxBitmap converted = wxBitmap(image);
 
    wxMemoryDC memDC;
 
@@ -2479,7 +2479,6 @@ void TrackArtist::DrawClipSpectrum(WaveTrackCache &waveTrackCache,
 
    dc.Blit(mid.x, mid.y, mid.width, mid.height, &memDC, 0, 0, wxCOPY, FALSE);
 
-   delete image;
 #ifdef EXPERIMENTAL_FFT_Y_GRID
    delete[] yGrid;
 #endif //EXPERIMENTAL_FFT_Y_GRID
@@ -2742,7 +2741,7 @@ void TrackArtist::DrawNoteBackground(NoteTrack *track, wxDC &dc,
    double beats_per_measure = 4.0;
    while (true) {
       if (i < sigs.length() && sigs[i].beat < next_bar_beat + ALG_EPS) {
-         // new time signature takes effect
+         // NEW time signature takes effect
          Alg_time_sig &sig = sigs[i++];
          next_bar_beat = sig.beat;
          beats_per_measure = (sig.num * 4.0) / sig.den;
@@ -3170,8 +3169,6 @@ void TrackArtist::UpdatePrefs()
 {
    mdBrange = gPrefs->Read(ENV_DB_KEY, mdBrange);
    mShowClipping = gPrefs->Read(wxT("/GUI/ShowClipping"), mShowClipping);
-
-   gPrefs->Flush();
 }
 
 // Draws the sync-lock bitmap, tiled; always draws stationary relative to the DC

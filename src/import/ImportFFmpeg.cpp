@@ -167,7 +167,7 @@ class FFmpegImportFileHandle;
 
 /// A representative of FFmpeg loader in
 /// the Audacity import plugin list
-class FFmpegImportPlugin : public ImportPlugin
+class FFmpegImportPlugin final : public ImportPlugin
 {
 public:
    FFmpegImportPlugin():
@@ -182,11 +182,11 @@ public:
    wxString GetPluginFormatDescription();
 
    ///! Probes the file and opens it if appropriate
-   ImportFileHandle *Open(wxString Filename);
+   ImportFileHandle *Open(const wxString &Filename) override;
 };
 
 ///! Does acual import, returned by FFmpegImportPlugin::Open
-class FFmpegImportFileHandle : public ImportFileHandle
+class FFmpegImportFileHandle final : public ImportFileHandle
 {
 
 public:
@@ -292,7 +292,7 @@ wxString FFmpegImportPlugin::GetPluginFormatDescription()
    return DESC;
 }
 
-ImportFileHandle *FFmpegImportPlugin::Open(wxString filename)
+ImportFileHandle *FFmpegImportPlugin::Open(const wxString &filename)
 {
    FFmpegImportFileHandle *handle = new FFmpegImportFileHandle(filename);
 
@@ -310,15 +310,12 @@ ImportFileHandle *FFmpegImportPlugin::Open(wxString filename)
       if (!FFmpegLibsInst->ValidLibsLoaded())
       {
          int dontShowDlg;
-         FFmpegNotFoundDialog *dlg;
          gPrefs->Read(wxT("/FFmpeg/NotFoundDontShow"),&dontShowDlg,0);
          if (dontShowDlg == 0 && newsession)
          {
             gPrefs->Write(wxT("/NewImportingSession"), false);
             gPrefs->Flush();
-            dlg = new FFmpegNotFoundDialog(NULL);
-            dlg->ShowModal();
-            delete dlg;
+            FFmpegNotFoundDialog{ nullptr }.ShowModal();
          }
       }
    }
@@ -506,7 +503,7 @@ int FFmpegImportFileHandle::Import(TrackFactory *trackFactory,
          break;
       }
 
-      // There is a possibility that number of channels will change over time, but we do not have WaveTracks for new channels. Remember the number of channels and stick to it.
+      // There is a possibility that number of channels will change over time, but we do not have WaveTracks for NEW channels. Remember the number of channels and stick to it.
       mScs[s]->m_initialchannels = mScs[s]->m_stream->codec->channels;
       mChannels[s] = new WaveTrack *[mScs[s]->m_stream->codec->channels];
       int c;
@@ -603,7 +600,7 @@ int FFmpegImportFileHandle::Import(TrackFactory *trackFactory,
          }
          tasks.push_back(odTask);
       }
-      //Now we add the tasks and let them run, or delete them if the user cancelled
+      //Now we add the tasks and let them run, or DELETE them if the user cancelled
       for(int i=0; i < (int)tasks.size(); i++) {
          if(res==eProgressSuccess)
             ODManager::Instance()->AddNewTask(tasks[i]);
@@ -682,7 +679,7 @@ int FFmpegImportFileHandle::Import(TrackFactory *trackFactory,
       *outNumTracks += mScs[s]->m_initialchannels;
    }
 
-   // Create new tracks
+   // Create NEW tracks
    *outTracks = new Track *[*outNumTracks];
 
    // Copy audio from mChannels to newly created tracks (destroying mChannels elements in process)

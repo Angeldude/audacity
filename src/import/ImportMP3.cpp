@@ -102,7 +102,7 @@ struct private_data {
    bool id3checked;
 };
 
-class MP3ImportPlugin : public ImportPlugin
+class MP3ImportPlugin final : public ImportPlugin
 {
 public:
    MP3ImportPlugin():
@@ -114,10 +114,10 @@ public:
 
    wxString GetPluginStringID() { return wxT("libmad"); }
    wxString GetPluginFormatDescription();
-   ImportFileHandle *Open(wxString Filename);
+   ImportFileHandle *Open(const wxString &Filename) override;
 };
 
-class MP3ImportFileHandle : public ImportFileHandle
+class MP3ImportFileHandle final : public ImportFileHandle
 {
 public:
    MP3ImportFileHandle(wxFile *file, wxString filename):
@@ -176,7 +176,7 @@ wxString MP3ImportPlugin::GetPluginFormatDescription()
    return DESC;
 }
 
-ImportFileHandle *MP3ImportPlugin::Open(wxString Filename)
+ImportFileHandle *MP3ImportPlugin::Open(const wxString &Filename)
 {
    wxFile *file = new wxFile(Filename);
 
@@ -237,7 +237,7 @@ int MP3ImportFileHandle::Import(TrackFactory *trackFactory, Track ***outTracks,
       /* failure */
       /* printf("failure\n"); */
 
-      /* delete everything */
+      /* DELETE everything */
       for (chn = 0; chn < mPrivateData.numChannels; chn++) {
          delete mPrivateData.channels[chn];
       }
@@ -441,7 +441,7 @@ enum mad_flow input_cb(void *_data, struct mad_stream *stream)
     *  your existing buffer from stream.next_frame to the end.
     *
     *  This usually amounts to calling memmove() on this unconsumed portion
-    *  of the buffer and appending new data after it, before calling
+    *  of the buffer and appending NEW data after it, before calling
     *  mad_stream_buffer()"
     *           -- Rob Leslie, on the mad-dev mailing list */
 

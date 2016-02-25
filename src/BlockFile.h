@@ -38,7 +38,7 @@ class SummaryInfo {
 
 
 
-class BlockFile {
+class PROFILE_DLL_API BlockFile /* not final */ {
  public:
 
    // Constructor / Destructor
@@ -106,7 +106,7 @@ class BlockFile {
    /// Returns TRUE if the summary has not yet been written, but is actively being computed and written to disk
    virtual bool IsSummaryBeingComputed(){return false;}
 
-   /// Create a new BlockFile identical to this, using the given filename
+   /// Create a NEW BlockFile identical to this, using the given filename
    virtual BlockFile *Copy(wxFileName newFileName) = 0;
 
    virtual wxLongLong GetSpaceUsage() = 0;
@@ -178,7 +178,7 @@ class BlockFile {
 /// This is a common base class for all alias block files.  It handles
 /// reading and writing summary data, leaving very little for derived
 /// classes to need to implement.
-class AliasBlockFile : public BlockFile
+class AliasBlockFile /* not final */ : public BlockFile
 {
  public:
 

@@ -40,7 +40,7 @@ double NearestZeroCrossing(double t0);
 
 public:
 //Adds label and returns index of label in labeltrack.
-int DoAddLabel(const SelectedRegion& region);
+int DoAddLabel(const SelectedRegion& region, bool preserveFocus = false);
 
 private:
 
@@ -320,6 +320,7 @@ void OnImportMIDI();
 void OnImportRaw();
 
 void OnEditMetadata();
+bool DoEditMetadata(const wxString &title, const wxString &shortUndoDescription, bool force);
 
 void OnMixAndRender();
 void OnMixAndRenderToNewTrack();
@@ -369,6 +370,8 @@ public:
    static const int kConfigured = 0x01;
    // Flag used to disable saving the state after processing.
    static const int kSkipState  = 0x02;
+   // Flag used to disable "Repeat Last Effect"
+   static const int kDontRepeatLast = 0x04;
 };
 
 bool OnEffect(const PluginID & ID, int flags = OnEffectFlags::kNone);

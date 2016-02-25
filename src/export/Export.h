@@ -38,7 +38,7 @@ class AUDACITY_DLL_API FormatInfo
       ~FormatInfo(){};
       wxString mFormat;
       wxString mDescription;
-      wxString mExtension;
+      // wxString mExtension;
       wxArrayString mExtensions;
       wxString mMask;
       int mMaxChannels;
@@ -50,7 +50,7 @@ WX_DECLARE_USER_EXPORTED_OBJARRAY(FormatInfo, FormatInfoArray, AUDACITY_DLL_API)
 //----------------------------------------------------------------------------
 // ExportPlugin
 //----------------------------------------------------------------------------
-class AUDACITY_DLL_API ExportPlugin
+class AUDACITY_DLL_API ExportPlugin /* not final */
 {
 public:
 
@@ -80,11 +80,12 @@ public:
    virtual int GetMaxChannels(int index);
    virtual bool GetCanMetaData(int index);
 
-   virtual bool IsExtension(wxString & ext, int index);
+   virtual bool IsExtension(const wxString & ext, int index);
 
    virtual bool DisplayOptions(wxWindow *parent, int format = 0);
-
-   virtual wxWindow *OptionsCreate(wxWindow *parent, int format);
+   
+   // Precondition: parent != NULL
+   virtual wxWindow *OptionsCreate(wxWindow *parent, int format) = 0;
 
    virtual bool CheckFileName(wxFileName &filename, int format = 0);
 
@@ -104,22 +105,13 @@ public:
     */
    virtual int Export(AudacityProject *project,
                        int channels,
-                       wxString fName,
+                       const wxString &fName,
                        bool selectedOnly,
                        double t0,
                        double t1,
                        MixerSpec *mixerSpec = NULL,
-                       Tags *metadata = NULL,
-                       int subformat = 0);
-
-   virtual int DoExport(AudacityProject *project,
-                         int channels,
-                         wxString fName,
-                         bool selectedOnly,
-                         double t0,
-                         double t1,
-                         MixerSpec *mixerSpec,
-                         int subformat);
+                       const Tags *metadata = NULL,
+                       int subformat = 0) = 0;
 
 protected:
    Mixer* CreateMixer(int numInputTracks, WaveTrack **inputTracks,
@@ -139,7 +131,7 @@ WX_DEFINE_USER_EXPORTED_ARRAY_PTR(wxWindow *, WindowPtrArray, class AUDACITY_DLL
 //----------------------------------------------------------------------------
 // Exporter
 //----------------------------------------------------------------------------
-class  AUDACITY_DLL_API Exporter : public wxEvtHandler
+class  AUDACITY_DLL_API Exporter final : public wxEvtHandler
 {
 public:
 
@@ -203,7 +195,7 @@ private:
 //----------------------------------------------------------------------------
 // ExportMixerPanel
 //----------------------------------------------------------------------------
-class ExportMixerPanel: public wxPanel
+class ExportMixerPanel final : public wxPanel
 {
 public:
    ExportMixerPanel( MixerSpec *mixerSpec, wxArrayString trackNames,
@@ -226,7 +218,7 @@ private:
    wxArrayString mTrackNames;
    int mBoxWidth, mChannelHeight, mTrackHeight;
 
-   void SetFont( wxMemoryDC &memDC, wxString text, int width, int height );
+   void SetFont( wxMemoryDC &memDC, const wxString &text, int width, int height );
    double Distance( wxPoint &a, wxPoint &b );
    bool IsOnLine( wxPoint p, wxPoint la, wxPoint lb );
 
@@ -236,7 +228,7 @@ private:
 //----------------------------------------------------------------------------
 // ExportMixerDialog
 //----------------------------------------------------------------------------
-class ExportMixerDialog : public wxDialog
+class ExportMixerDialog final : public wxDialog
 {
 public:
    // constructors and destructors

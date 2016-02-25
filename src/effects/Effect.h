@@ -50,9 +50,9 @@ class WaveTrack;
 
 // TODO:  Apr-06-2015
 // TODO:  Much more cleanup of old methods and variables is needed, but
-// TODO:  can't be done until after all effects are using the new API.
+// TODO:  can't be done until after all effects are using the NEW API.
 
-class AUDACITY_DLL_API Effect : public wxEvtHandler,
+class AUDACITY_DLL_API Effect /* not final */ : public wxEvtHandler,
                                 public EffectClientInterface,
                                 public EffectUIClientInterface,
                                 public EffectHostInterface
@@ -309,11 +309,11 @@ protected:
 
    // Pass a fraction between 0.0 and 1.0, for the current track
    // (when doing one track at a time)
-   bool TrackProgress(int whichTrack, double frac, wxString = wxT(""));
+   bool TrackProgress(int whichTrack, double frac, const wxString & = wxEmptyString);
 
    // Pass a fraction between 0.0 and 1.0, for the current track group
    // (when doing stereo groups at a time)
-   bool TrackGroupProgress(int whichGroup, double frac, wxString = wxT(""));
+   bool TrackGroupProgress(int whichGroup, double frac, const wxString & = wxEmptyString);
 
    int GetNumWaveTracks() { return mNumTracks; }
 
@@ -334,6 +334,9 @@ protected:
    // (such as fade effects) need to know the full selection length.
    void SetPreviewFullSelectionFlag(bool previewDurationFlag);
 
+   // Use this if the effect needs to know if it is previewing
+   bool IsPreviewing() { return mIsPreview; }
+
    // Most effects only require selected tracks to be copied for Preview.
    // If IncludeNotSelectedPreviewTracks(true), then non-linear effects have
    // preview copies of all wave tracks.
@@ -346,10 +349,10 @@ protected:
 
    // If bGoodResult, replace mWaveTracks tracks in mTracks with successfully processed
    // mOutputTracks copies, get rid of old mWaveTracks, and set mWaveTracks to mOutputTracks.
-   // Else clear and delete mOutputTracks copies.
+   // Else clear and DELETE mOutputTracks copies.
    void ReplaceProcessedTracks(const bool bGoodResult);
 
-   // Use this to append a new output track.
+   // Use this to append a NEW output track.
    void AddToOutputTracks(Track *t);
 
 //
@@ -359,8 +362,8 @@ protected:
 // may be needed by any particular subclass of Effect.
 //
 protected:
-   ProgressDialog *mProgress;
-   double         mProjectRate; // Sample rate of the project - new tracks should
+   ProgressDialog *mProgress; // Temporary pointer, NOT deleted in destructor.
+   double         mProjectRate; // Sample rate of the project - NEW tracks should
                                // be created with this rate...
    double         mSampleRate;
    TrackFactory   *mFactory;
@@ -463,13 +466,13 @@ private:
 
 
 // FIXME:
-// FIXME:  Remove this once all effects are using the new dialog
+// FIXME:  Remove this once all effects are using the NEW dialog
 // FIXME:
 
 #define ID_EFFECT_PREVIEW ePreviewID
 
 // Base dialog for regular effect
-class AUDACITY_DLL_API EffectDialog:public wxDialog
+class AUDACITY_DLL_API EffectDialog /* not final */ : public wxDialog
 {
 public:
    // constructors and destructors
@@ -496,7 +499,7 @@ private:
 };
 
 //
-class EffectUIHost : public wxDialog,
+class EffectUIHost final : public wxDialog,
                      public EffectUIHostInterface
 {
 public:
@@ -584,7 +587,7 @@ private:
    DECLARE_EVENT_TABLE();
 };
 
-class EffectPresetsDialog : public wxDialog
+class EffectPresetsDialog final : public wxDialog
 {
 public:
    EffectPresetsDialog(wxWindow *parent, Effect *effect);

@@ -26,6 +26,7 @@ class TimeTrack;
 class SnapManager;
 class NumberScale;
 class TrackList;
+class ZoomInfo;
 
 class AUDACITY_DLL_API Ruler {
  public:
@@ -78,7 +79,7 @@ class AUDACITY_DLL_API Ruler {
 
    // Specify the name of the units (like "dB") if you
    // want numbers like "1.6" formatted as "1.6 dB".
-   void SetUnits(wxString units);
+   void SetUnits(const wxString &units);
 
    // Logarithmic
    void SetLog(bool log);
@@ -127,7 +128,7 @@ class AUDACITY_DLL_API Ruler {
    void SetCustomMajorLabels(wxArrayString *label, int numLabel, int start, int step);
    void SetCustomMinorLabels(wxArrayString *label, int numLabel, int start, int step);
 
-   void SetUseZoomInfo(int leftOffset);
+   void SetUseZoomInfo(int leftOffset, const ZoomInfo *zoomInfo);
 
    //
    // Drawing
@@ -231,13 +232,13 @@ private:
    int          mGridLineLength; //        end
    wxString     mUnits;
    bool         mTwoTone;
-   bool         mUseZoomInfo;
+   const ZoomInfo *mUseZoomInfo;
    int          mLeftOffset;
 
    NumberScale *mpNumberScale;
 };
 
-class AUDACITY_DLL_API RulerPanel : public wxPanel {
+class AUDACITY_DLL_API RulerPanel final : public wxPanel {
    DECLARE_DYNAMIC_CLASS(RulerPanel)
 
  public:
@@ -273,7 +274,7 @@ private:
 // Once TrackPanel uses wxSizers, we will derive it from some
 // wxWindow and the GetSize and SetSize functions
 // will then be wxWidgets functions instead.
-class AUDACITY_DLL_API AdornedRulerPanel : public wxPanel
+class AUDACITY_DLL_API AdornedRulerPanel final : public wxPanel
 {
 public:
    AdornedRulerPanel(AudacityProject* parent,
@@ -319,7 +320,7 @@ private:
    void DoDrawCursor(wxDC * dc);
    void DoDrawSelection(wxDC * dc);
    void DoDrawIndicator(wxDC * dc);
-   void DrawQuickPlayIndicator(wxDC * dc /*NULL to delete old only*/);
+   void DrawQuickPlayIndicator(wxDC * dc /*NULL to DELETE old only*/);
    void DoDrawPlayRegion(wxDC * dc);
 
    double Pos2Time(int p, bool ignoreFisheye = false);
@@ -335,7 +336,7 @@ private:
    bool mIsWE;
 
    Ruler mRuler;
-   ViewInfo *mViewInfo;
+   ViewInfo *const mViewInfo;
    AudacityProject *mProject;
    TrackList *mTracks;
 

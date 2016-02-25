@@ -233,6 +233,11 @@ Tags::~Tags()
 {
 }
 
+std::shared_ptr<Tags> Tags::Duplicate() const
+{
+   return std::make_shared<Tags>(*this);
+}
+
 Tags & Tags::operator=(const Tags & src)
 {
    mEditTitle = src.mEditTitle;
@@ -371,53 +376,38 @@ int Tags::GetGenre(const wxString & name)
    return 255;
 }
 
-bool Tags::HasTag(const wxString & name)
+bool Tags::HasTag(const wxString & name) const
 {
    wxString key = name;
    key.UpperCase();
 
-   TagMap::iterator iter = mXref.find(key);
+   auto iter = mXref.find(key);
    return (iter != mXref.end());
 }
 
-wxString Tags::GetTag(const wxString & name)
+wxString Tags::GetTag(const wxString & name) const
 {
    wxString key = name;
    key.UpperCase();
 
-   TagMap::iterator iter = mXref.find(key);
+   auto iter = mXref.find(key);
 
    if (iter == mXref.end()) {
       return wxEmptyString;
    }
 
-   return mMap[iter->second];
+   auto iter2 = mMap.find(iter->second);
+   if (iter2 == mMap.end()) {
+      wxASSERT(false);
+      return wxEmptyString;
+   }
+   else
+      return iter2->second;
 }
 
-bool Tags::GetFirst(wxString & name, wxString & value)
+Tags::Iterators Tags::GetRange() const
 {
-   mIter = mMap.begin();
-   if (mIter == mMap.end()) {
-      return false;
-   }
-
-   name = mIter->first;
-   value = mIter->second;
-
-   return true;
-}
-
-bool Tags::GetNext(wxString & name, wxString & value)
-{
-   ++mIter;
-   if (mIter == mMap.end()) {
-      return false;
-   }
-
-   name = mIter->first;
-   value = mIter->second;
-
-   return true;
+   return std::make_pair(mMap.begin(), mMap.end());
 }
 
 void Tags::SetTag(const wxString & name, const wxString & value)
@@ -436,21 +426,10 @@ void Tags::SetTag(const wxString & name, const wxString & value)
 
    // Didn't find the tag
    if (iter == mXref.end()) {
-      // Intention was to delete so no need to add it
-      if (value.IsEmpty()) {
-         return;
-      }
 
-      // Add a new tag
+      // Add a NEW tag
       mXref[key] = name;
       mMap[name] = value;
-      return;
-   }
-
-   // Intention was to delete
-   if (value.IsEmpty()) {
-      mMap.erase(iter->second);
-      mXref.erase(iter);
       return;
    }
 
@@ -521,8 +500,9 @@ void Tags::WriteXML(XMLWriter &xmlFile)
 {
    xmlFile.StartTag(wxT("tags"));
 
-   wxString n, v;
-   for (bool cont = GetFirst(n, v); cont; cont = GetNext(n, v)) {
+   for (const auto &pair : GetRange()) {
+      const auto &n = pair.first;
+      const auto &v = pair.second;
       xmlFile.StartTag(wxT("tag"));
       xmlFile.WriteAttr(wxT("name"), n);
       xmlFile.WriteAttr(wxT("value"), v);
@@ -532,7 +512,7 @@ void Tags::WriteXML(XMLWriter &xmlFile)
    xmlFile.EndTag(wxT("tags"));
 }
 
-bool Tags::ShowEditDialog(wxWindow *parent, wxString title, bool force)
+bool Tags::ShowEditDialog(wxWindow *parent, const wxString &title, bool force)
 {
    if (force) {
       TagsEditor dlg(parent, title, this, mEditTitle, mEditTrackNumber);
@@ -546,7 +526,7 @@ bool Tags::ShowEditDialog(wxWindow *parent, wxString title, bool force)
 // ComboEditor - Wrapper to prevent unwanted background erasure
 //
 
-class ComboEditor:public wxGridCellChoiceEditor
+class ComboEditor final : public wxGridCellChoiceEditor
 {
 public:
    ComboEditor(const wxArrayString& choices, bool allowOthers = false)
@@ -563,7 +543,7 @@ public:
    {
       wxGridCellChoiceEditor::SetParameters(params);
 
-      // Refresh the wxComboBox with new values
+      // Refresh the wxComboBox with NEW values
       if (Combo()) {
          Combo()->Clear();
          Combo()->Append(m_choices);
@@ -650,7 +630,7 @@ BEGIN_EVENT_TABLE(TagsEditor, wxDialog)
 END_EVENT_TABLE()
 
 TagsEditor::TagsEditor(wxWindow * parent,
-                       wxString title,
+                       const wxString &title,
                        Tags * tags,
                        bool editTitle,
                        bool editTrack)
@@ -754,7 +734,7 @@ void TagsEditor::PopulateOrExchange(ShuttleGui & S)
       S.EndHorizontalLay();
 
       if (mGrid == NULL) {
-         mGrid = new Grid(S.GetParent(),
+         mGrid = safenew Grid(S.GetParent(),
                           wxID_ANY,
                           wxDefaultPosition,
                           wxDefaultSize,
@@ -874,8 +854,7 @@ bool TagsEditor::TransferDataFromWindow()
 bool TagsEditor::TransferDataToWindow()
 {
    size_t i;
-   wxString n;
-   wxString v;
+   TagMap popTagMap;
 
    // Disable redrawing until we're done
    mGrid->BeginBatch();
@@ -901,16 +880,19 @@ bool TagsEditor::TransferDataToWindow()
          mGrid->SetReadOnly(i, 1);
       }
 
-      mLocal.SetTag(labelmap[i].name, wxEmptyString);
+      popTagMap[ labelmap[i].name ] = mGrid->GetCellValue(i, 1);
    }
 
    // Populate the rest
-   for (bool cont = mLocal.GetFirst(n, v); cont; cont = mLocal.GetNext(n, v)) {
-      mGrid->AppendRows();
-
-      mGrid->SetCellValue(i, 0, n);
-      mGrid->SetCellValue(i, 1, v);
-      i++;
+   for (const auto &pair : mLocal.GetRange()) {
+      const auto &n = pair.first;
+      const auto &v = pair.second;
+      if (popTagMap.find(n) == popTagMap.end()) {
+         mGrid->AppendRows();
+         mGrid->SetCellValue(i, 0, n);
+         mGrid->SetCellValue(i, 1, v);
+         i++;
+      }
    }
 
    // Add an extra one to help with initial sizing and to show it can be done
@@ -921,6 +903,8 @@ bool TagsEditor::TransferDataToWindow()
 
    // Set the editors
    SetEditors();
+   Layout();
+   Fit();
 
    return true;
 }
@@ -1161,14 +1145,12 @@ void TagsEditor::OnSave(wxCommandEvent & WXUNUSED(event))
       // Close the file
       writer.Close();
    }
-   catch (XMLFileWriterException* pException)
+   catch (const XMLFileWriterException &exception)
    {
       wxMessageBox(wxString::Format(
          _("Couldn't write to file \"%s\": %s"),
-         fn.c_str(), pException->GetMessage().c_str()),
+         fn.c_str(), exception.GetMessage().c_str()),
          _("Error Saving Tags File"), wxICON_ERROR, this);
-
-      delete pException;
    }
 }
 
@@ -1195,8 +1177,9 @@ void TagsEditor::OnSaveDefaults(wxCommandEvent & WXUNUSED(event))
    gPrefs->DeleteGroup(wxT("/Tags"));
 
    // Write out each tag
-   wxString n, v;
-   for (bool cont = mLocal.GetFirst(n, v); cont; cont = mLocal.GetNext(n, v)) {
+   for (const auto &pair : mLocal.GetRange()) {
+      const auto &n = pair.first;
+      const auto &v = pair.second;
       gPrefs->Write(wxT("/Tags/") + n, v);
    }
    gPrefs->Flush();

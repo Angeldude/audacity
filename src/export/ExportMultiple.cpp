@@ -270,7 +270,7 @@ void ExportMultiple::PopulateOrExchange(ShuttleGui& S)
             S.AddPrompt(_("Options:"));
             if (!mBook)
             {
-               mBook = new wxSimplebook(S.GetParent(), OptionsID, wxDefaultPosition, wxDefaultSize, wxBORDER_STATIC);
+               mBook = safenew wxSimplebook(S.GetParent(), OptionsID, wxDefaultPosition, wxDefaultSize, wxBORDER_STATIC);
                for (size_t i = 0; i < mPlugins.GetCount(); i++)
                {
                   for (int j = 0; j < mPlugins[i]->GetFormatCount(); j++)
@@ -522,6 +522,8 @@ void ExportMultiple::OnExport(wxCommandEvent& WXUNUSED(event))
    ShuttleGui S(this, eIsSavingToPrefs);
    PopulateOrExchange(S);
 
+   gPrefs->Flush();
+
    // Make sure the output directory is in good shape
    if (!DirOk()) {
       return;
@@ -617,7 +619,7 @@ bool ExportMultiple::DirOk()
 }
 
 int ExportMultiple::ExportMultipleByLabel(bool byName,
-   wxString prefix, bool addNumber)
+   const wxString &prefix, bool addNumber)
 {
    wxASSERT(mProject);
    bool tagsPrompt = mProject->GetShowId3Dialog();
@@ -706,7 +708,7 @@ int ExportMultiple::ExportMultipleByLabel(bool byName,
       setting.filetags.SetTag(TAG_TITLE, title);
       setting.filetags.SetTag(TAG_TRACK, l+1);
       // let the user have a crack at editing it, exit if cancelled
-      if (!setting.filetags.ShowEditDialog(mProject,_("Edit Metadata"), tagsPrompt))
+      if (!setting.filetags.ShowEditDialog(mProject,_("Edit Metadata Tags"), tagsPrompt))
          return false;
 
       /* add the settings to the array of settings to be used for export */
@@ -735,7 +737,7 @@ int ExportMultiple::ExportMultipleByLabel(bool byName,
 }
 
 int ExportMultiple::ExportMultipleByTrack(bool byName,
-   wxString prefix, bool addNumber)
+   const wxString &prefix, bool addNumber)
 {
    wxASSERT(mProject);
    bool tagsPrompt = mProject->GetShowId3Dialog();
@@ -844,7 +846,7 @@ int ExportMultiple::ExportMultipleByTrack(bool byName,
       setting.filetags.SetTag(TAG_TITLE, title);
       setting.filetags.SetTag(TAG_TRACK, l+1);
       // let the user have a crack at editing it, exit if cancelled
-      if (!setting.filetags.ShowEditDialog(mProject,_("Edit Metadata"), tagsPrompt))
+      if (!setting.filetags.ShowEditDialog(mProject,_("Edit Metadata Tags"), tagsPrompt))
          return false;
 
       /* add the settings to the array of settings to be used for export */
@@ -909,7 +911,7 @@ int ExportMultiple::DoExport(int channels,
                               bool selectedOnly,
                               double t0,
                               double t1,
-                              Tags tags)
+                              const Tags &tags)
 {
    wxLogDebug(wxT("Doing multiple Export: File name \"%s\""), (name.GetFullName()).c_str());
    wxLogDebug(wxT("Channels: %i, Start: %lf, End: %lf "), channels, t0, t1);
@@ -951,7 +953,7 @@ int ExportMultiple::DoExport(int channels,
    return success;
 }
 
-wxString ExportMultiple::MakeFileName(wxString input)
+wxString ExportMultiple::MakeFileName(const wxString &input)
 {
    wxString newname; // name we are generating
 

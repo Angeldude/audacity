@@ -201,7 +201,7 @@ public:
    }
 };
 
-class AUDACITY_DLL_API WaveClip : public XMLTagHandler
+class AUDACITY_DLL_API WaveClip final : public XMLTagHandler
 {
 private:
    // It is an error to copy a WaveClip without specifying the DirManager.
@@ -309,10 +309,10 @@ public:
    /// Flush must be called after last Append
    bool Flush();
 
-   bool AppendAlias(wxString fName, sampleCount start,
+   bool AppendAlias(const wxString &fName, sampleCount start,
                     sampleCount len, int channel,bool useOD);
 
-   bool AppendCoded(wxString fName, sampleCount start,
+   bool AppendCoded(const wxString &fName, sampleCount start,
                             sampleCount len, int channel, int decodeType);
 
    /// This name is consistent with WaveTrack::Clear. It performs a "Cut"
@@ -339,7 +339,7 @@ public:
                     double* cutLineStart = NULL,
                     double *cutLineEnd = NULL);
 
-   /** Expand cut line (that is, re-insert audio, then delete audio saved in
+   /** Expand cut line (that is, re-insert audio, then DELETE audio saved in
     * cut line). Returns true if a cut line could be found and sucessfully
     * expanded, false otherwise */
    bool ExpandCutLine(double cutLinePosition);
@@ -392,7 +392,7 @@ protected:
    WaveCache    *mWaveCache;
    ODLock       mWaveCacheMutex;
    SpecCache    *mSpecCache;
-   samplePtr     mAppendBuffer;
+   SampleBuffer  mAppendBuffer;
    sampleCount   mAppendBufferLen;
 
    // Cut Lines are nothing more than ordinary wave clips, with the

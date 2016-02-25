@@ -11,6 +11,7 @@
 #ifndef __AUDACITY_LABELDIALOG__
 #define __AUDACITY_LABELDIALOG__
 
+#include <vector>
 #include <wx/defs.h>
 #include <wx/dialog.h>
 #include <wx/event.h>
@@ -27,9 +28,9 @@ class EmptyLabelRenderer;
 class LabelTrack;
 class ViewInfo;
 
-WX_DEFINE_ARRAY(RowData *, RowDataArray);
+typedef std::vector<RowData> RowDataArray;
 
-class LabelDialog:public wxDialog
+class LabelDialog final : public wxDialog
 {
  public:
 
@@ -51,7 +52,7 @@ class LabelDialog:public wxDialog
    void FindAllLabels();
    void AddLabels(LabelTrack *t);
    void FindInitialRow();
-   wxString TrackName(int & index, wxString dflt = _("Label Track"));
+   wxString TrackName(int & index, const wxString &dflt = _("Label Track"));
 
    void OnUpdate(wxCommandEvent &event);
    void OnInsert(wxCommandEvent &event);

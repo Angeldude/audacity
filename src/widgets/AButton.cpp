@@ -48,7 +48,7 @@ END_EVENT_TABLE()
 
 // LL:  An alternative to this might be to just use the wxEVT_KILL_FOCUS
 //      or wxEVT_ACTIVATE events.
-class AButton::Listener
+class AButton::Listener final
    : public wxEvtHandler
 {
 public:
@@ -280,7 +280,7 @@ void AButton::SetAlternateIdx(unsigned idx)
 
 void AButton::FollowModifierKeys()
 {
-   if(!mListener.get())
+   if(!mListener)
       mListener.reset(new Listener(this));
 }
 

@@ -42,7 +42,7 @@ typedef struct {
    wxUint32 channels;   // number of interleaved channels
 } auHeader;
 
-class SimpleBlockFile : public BlockFile {
+class PROFILE_DLL_API SimpleBlockFile /* not final */ : public BlockFile {
  public:
 
    // Constructor / Destructor
@@ -67,7 +67,7 @@ class SimpleBlockFile : public BlockFile {
    virtual int ReadData(samplePtr data, sampleFormat format,
                         sampleCount start, sampleCount len);
 
-   /// Create a new block file identical to this one
+   /// Create a NEW block file identical to this one
    virtual BlockFile *Copy(wxFileName newFileName);
    /// Write an XML representation of this file
    virtual void SaveXML(XMLWriter &xmlFile);

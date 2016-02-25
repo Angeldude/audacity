@@ -22,7 +22,6 @@
 #include "Experimental.h"
 
 #include "DirManager.h"
-#include "UndoManager.h"
 #include "ViewInfo.h"
 #include "TrackPanelListener.h"
 #include "AudioIOListener.h"
@@ -85,11 +84,14 @@ class MixerBoard;
 class MixerBoardFrame;
 
 struct AudioIOStartStreamOptions;
+struct UndoState;
 
 class WaveTrackArray;
 class Regions;
 
 class LWSlider;
+class UndoManager;
+enum class UndoPush : unsigned char;
 
 AudacityProject *CreateNewAudacityProject();
 AUDACITY_DLL_API AudacityProject *GetActiveProject();
@@ -126,7 +128,7 @@ enum StatusBarField {
 DECLARE_EXPORTED_EVENT_TYPE(AUDACITY_DLL_API, EVT_CAPTURE_KEY, -1);
 
 // XML handler for <import> tag
-class ImportXMLTagHandler : public XMLTagHandler
+class ImportXMLTagHandler final : public XMLTagHandler
 {
  public:
    ImportXMLTagHandler(AudacityProject* pProject) { mProject = pProject; }
@@ -142,7 +144,7 @@ class ImportXMLTagHandler : public XMLTagHandler
    AudacityProject* mProject;
 };
 
-class AUDACITY_DLL_API AudacityProject:  public wxFrame,
+class AUDACITY_DLL_API AudacityProject final : public wxFrame,
                                      public TrackPanelListener,
                                      public SelectionBarListener,
                                      public SpectralSelectionBarListener,
@@ -157,7 +159,7 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
    AudioIOStartStreamOptions GetDefaultPlayOptions();
 
    TrackList *GetTracks() { return mTracks; }
-   UndoManager *GetUndoManager() { return &mUndoManager; }
+   UndoManager *GetUndoManager() { return mUndoManager.get(); }
 
    sampleFormat GetDefaultFormat() { return mDefaultFormat; }
 
@@ -183,7 +185,7 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
    DirManager *GetDirManager();
    TrackFactory *GetTrackFactory();
    AdornedRulerPanel *GetRulerPanel();
-   Tags *GetTags();
+   const Tags *GetTags();
    int GetAudioIOToken() const;
    bool IsAudioActive() const;
    void SetAudioIOToken(int token);
@@ -219,17 +221,17 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
     * @return Array of file paths which the user selected to open (multiple
     * selections allowed).
     */
-   static wxArrayString ShowOpenDialog(wxString extraformat = wxEmptyString,
-         wxString extrafilter = wxEmptyString);
+   static wxArrayString ShowOpenDialog(const wxString &extraformat = wxEmptyString,
+         const wxString &extrafilter = wxEmptyString);
    static bool IsAlreadyOpen(const wxString & projPathName);
    static void OpenFiles(AudacityProject *proj);
-   void OpenFile(wxString fileName, bool addtohistory = true);
+   void OpenFile(const wxString &fileName, bool addtohistory = true);
    bool WarnOfLegacyFile( );
 
-   // If pNewTrackList is passed in non-NULL, it gets filled with the pointers to new tracks.
-   bool Import(wxString fileName, WaveTrackArray *pTrackArray = NULL);
+   // If pNewTrackList is passed in non-NULL, it gets filled with the pointers to NEW tracks.
+   bool Import(const wxString &fileName, WaveTrackArray *pTrackArray = NULL);
 
-   void AddImportedTracks(wxString fileName,
+   void AddImportedTracks(const wxString &fileName,
                           Track **newTracks, int numTracks);
    void LockAllBlocks();
    void UnlockAllBlocks();
@@ -384,7 +386,8 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
 
    double ScrollingLowerBoundTime() const;
    // How many pixels are covered by the period from lowermost scrollable time, to the given time:
-   wxInt64 PixelWidthBeforeTime(double scrollto) const;
+   // PRL: Bug1197: we seem to need to compute all in double, to avoid differing results on Mac
+   double PixelWidthBeforeTime(double scrollto) const;
    void SetHorizontalThumb(double scrollto);
 
    // TrackPanel access
@@ -393,12 +396,12 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
 
    // TrackPanel callback methods, overrides of TrackPanelListener
    virtual void TP_DisplaySelection();
-   virtual void TP_DisplayStatusMessage(wxString msg);
+   virtual void TP_DisplayStatusMessage(const wxString &msg) override;
 
    virtual ToolsToolBar * TP_GetToolsToolBar();
 
-   virtual void TP_PushState(wxString longDesc, wxString shortDesc,
-                             int flags);
+   virtual void TP_PushState(const wxString &longDesc, const wxString &shortDesc,
+                             UndoPush flags) override;
    virtual void TP_ModifyState(bool bWantsAutoSave);    // if true, writes auto-save file. Should set only if you really want the state change restored after
                                                         // a crash, as it can take many seconds for large (eg. 10 track-hours) projects
    virtual void TP_RedrawScrollbars();
@@ -433,6 +436,10 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
 
    wxStatusBar* GetStatusBar() { return mStatusBar; }
 
+private:
+   bool SnapSelection();
+
+public:
    // SelectionBarListener callback methods
 
    virtual double AS_GetRate();
@@ -477,12 +484,12 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
    // Command Handling
    bool TryToMakeActionAllowed( wxUint32 & flags, wxUint32 flagsRqd, wxUint32 mask );
 
-   ///Prevents delete from external thread - for e.g. use of GetActiveProject
+   ///Prevents DELETE from external thread - for e.g. use of GetActiveProject
    static void AllProjectsDeleteLock();
    static void AllProjectsDeleteUnlock();
 
-   void PushState(wxString desc, wxString shortDesc,
-                  int flags = PUSH_AUTOSAVE);
+   void PushState(const wxString &desc, const wxString &shortDesc); // use UndoPush::AUTOSAVE
+   void PushState(const wxString &desc, const wxString &shortDesc, UndoPush flags);
    void RollbackState();
 
  private:
@@ -492,7 +499,7 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
    void InitialState();
    void ModifyState(bool bWantsAutoSave);    // if true, writes auto-save file. Should set only if you really want the state change restored after
                                              // a crash, as it can take many seconds for large (eg. 10 track-hours) projects
-   void PopState(TrackList * l);
+   void PopState(const UndoState &state);
 
    void UpdateLyrics();
    void UpdateMixerBoard();
@@ -519,7 +526,10 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
    wxMenu *mRecentFilesMenu;
 
    // Tags (artist name, song properties, MP3 ID3 info, etc.)
-   Tags *mTags;
+   // The structure may be shared with undo history entries
+   // To keep undo working correctly, always replace this with a new duplicate
+   // BEFORE doing any editing of it!
+   std::shared_ptr<Tags> mTags;
 
    // List of tracks and display info
    TrackList *mTracks;
@@ -541,7 +551,7 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
    static ODLock *msAllProjectDeleteMutex;
 
    // History/Undo manager
-   UndoManager mUndoManager;
+   std::unique_ptr<UndoManager> mUndoManager;
    bool mDirty;
 
    // Commands
@@ -678,37 +688,6 @@ class AUDACITY_DLL_API AudacityProject:  public wxFrame,
    friend class CommandManager;
 
    DECLARE_EVENT_TABLE()
-};
-
-typedef void (AudacityProject::*audCommandFunction)();
-typedef void (AudacityProject::*audCommandKeyFunction)(const wxEvent *);
-typedef void (AudacityProject::*audCommandListFunction)(int);
-typedef bool (AudacityProject::*audCommandPluginFunction)(const PluginID &, int);
-
-// Previously this was in menus.cpp, and the declaration of the
-// command functor was not visible anywhere else.
-class AUDACITY_DLL_API AudacityProjectCommandFunctor : public CommandFunctor
-{
-public:
-   AudacityProjectCommandFunctor(AudacityProject *project,
-      audCommandFunction commandFunction);
-   AudacityProjectCommandFunctor(AudacityProject *project,
-      audCommandKeyFunction commandFunction);
-   AudacityProjectCommandFunctor(AudacityProject *project,
-      audCommandListFunction commandFunction);
-   AudacityProjectCommandFunctor(AudacityProject *project,
-      audCommandPluginFunction commandFunction,
-      const PluginID & pluginID);
-
-   virtual void operator()(int index = 0, const wxEvent *evt = NULL);
-
-private:
-   AudacityProject *mProject;
-   audCommandFunction mCommandFunction;
-   audCommandKeyFunction mCommandKeyFunction;
-   audCommandListFunction mCommandListFunction;
-   audCommandPluginFunction mCommandPluginFunction;
-   PluginID mPluginID;
 };
 
 #endif

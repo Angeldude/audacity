@@ -132,7 +132,7 @@ It handles initialization and termination by subclassing wxApp.
 // These lines ensure that Audacity gets WindowsXP themes.
 // Without them we get the old-style Windows98/2000 look under XP.
 #  if !defined(__WXWINCE__)
-#     pragma comment(linker, "\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='X86' publicKeyToken='6595b64144ccf1df'\"")
+#     pragma comment(linker,"\"/manifestdependency:type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #  endif
 
 // These lines allows conditional inclusion of the various libraries
@@ -313,7 +313,7 @@ void QuitAudacity(bool bForce)
    //temporarilly commented out till it is added to all projects
    //delete Profiler::Instance();
 
-   //delete the static lock for audacity projects
+   //DELETE the static lock for audacity projects
    AudacityProject::DeleteAllProjectsDeleteLock();
 
    //remove our logger
@@ -596,7 +596,7 @@ static wxArrayString ofqueue;
 #define IPC_APPL wxT("audacity")
 #define IPC_TOPIC wxT("System")
 
-class IPCConn : public wxConnection
+class IPCConn final : public wxConnection
 {
 public:
    IPCConn()
@@ -619,7 +619,7 @@ public:
    }
 };
 
-class IPCServ : public wxServer
+class IPCServ final : public wxServer
 {
 public:
    IPCServ(const wxString & appl)
@@ -769,7 +769,7 @@ END_EVENT_TABLE()
 // TODO: Would be nice to make this handle not opening a file with more panache.
 //  - Inform the user if DefaultOpenPath not set.
 //  - Switch focus to correct instance of project window, if already open.
-bool AudacityApp::MRUOpen(wxString fullPathStr) {
+bool AudacityApp::MRUOpen(const wxString &fullPathStr) {
    // Most of the checks below are copied from AudacityProject::OpenFiles.
    // - some rationalisation might be possible.
 
@@ -792,21 +792,21 @@ bool AudacityApp::MRUOpen(wxString fullPathStr) {
             return false;
 
          // DMM: If the project is dirty, that means it's been touched at
-         // all, and it's not safe to open a new project directly in its
-         // place.  Only if the project is brand-new clean and the user
+         // all, and it's not safe to open a NEW project directly in its
+         // place.  Only if the project is brand-NEW clean and the user
          // hasn't done any action at all is it safe for Open to take place
          // inside the current project.
          //
-         // If you try to Open a new project inside the current window when
+         // If you try to Open a NEW project inside the current window when
          // there are no tracks, but there's an Undo history, etc, then
-         // bad things can happen, including data files moving to the new
+         // bad things can happen, including data files moving to the NEW
          // project directory, etc.
          if (!proj || proj->GetDirty() || !proj->GetIsEmpty()) {
             proj = CreateNewAudacityProject();
          }
          // This project is clean; it's never been touched.  Therefore
          // all relevant member variables are in their initial state,
-         // and it's okay to open a new project inside this window.
+         // and it's okay to open a NEW project inside this window.
          proj->OpenFile(fullPathStr);
       }
       else {
@@ -985,8 +985,10 @@ wxLanguageInfo userLangs[] =
 };
 #endif
 
-void AudacityApp::InitLang( const wxString & lang )
+wxString AudacityApp::InitLang( const wxString & lang )
 {
+   wxString result = lang;
+
    if (mLocale)
       delete mLocale;
 
@@ -1001,10 +1003,18 @@ void AudacityApp::InitLang( const wxString & lang )
    wxSetEnv(wxT("LANG"), wxT("en_US.UTF-8"));
 #endif
 
-   const wxLanguageInfo *info = wxLocale::FindLanguageInfo(lang);
-   if (!lang)
+   const wxLanguageInfo *info = NULL;
+   if (!lang.empty()) {
+      info = wxLocale::FindLanguageInfo(lang);
+      if (!info)
+         ::wxMessageBox(wxString::Format(_("Language \"%s\" is unknown"), lang));
+   }
+   if (!info)
    {
-      return;
+      result = GetSystemLanguageCode();
+      info = wxLocale::FindLanguageInfo(result);
+      if (!info)
+         return result;
    }
    mLocale = new wxLocale(info->Language);
 
@@ -1035,6 +1045,8 @@ void AudacityApp::InitLang( const wxString & lang )
       wxCommandEvent evt(EVT_LANGUAGE_CHANGE);
       ProcessEvent(evt);
    }
+
+   return result;
 }
 
 void AudacityApp::OnFatalException()
@@ -1147,7 +1159,7 @@ bool AudacityApp::OnInit()
 
 #if defined(__WXMAC__)
    // Disable window animation
-   wxSystemOptions::SetOption( wxMAC_WINDOW_PLAIN_TRANSITION, 1 );
+   wxSystemOptions::SetOption(wxMAC_WINDOW_PLAIN_TRANSITION, 1);
 #endif
 
 #ifdef AUDACITY_NAME
@@ -1191,32 +1203,32 @@ bool AudacityApp::OnInit()
 
 #ifdef AUDACITY_NAME
    AddUniquePathToPathList(wxString::Format(wxT("%s/.%s-files"),
-                                            home.c_str(), wxT(AUDACITY_NAME)),
-                           audacityPathList);
+      home.c_str(), wxT(AUDACITY_NAME)),
+      audacityPathList);
    AddUniquePathToPathList(wxString::Format(wxT("%s/share/%s"),
-                                            wxT(INSTALL_PREFIX), wxT(AUDACITY_NAME)),
-                           audacityPathList);
+      wxT(INSTALL_PREFIX), wxT(AUDACITY_NAME)),
+      audacityPathList);
    AddUniquePathToPathList(wxString::Format(wxT("%s/share/doc/%s"),
-                                            wxT(INSTALL_PREFIX), wxT(AUDACITY_NAME)),
-                           audacityPathList);
+      wxT(INSTALL_PREFIX), wxT(AUDACITY_NAME)),
+      audacityPathList);
 #else //AUDACITY_NAME
    AddUniquePathToPathList(wxString::Format(wxT("%s/.audacity-files"),
-                                            home.c_str()),
-                            audacityPathList);
+      home.c_str()),
+      audacityPathList);
    AddUniquePathToPathList(wxString::Format(wxT("%s/share/audacity"),
-                                            wxT(INSTALL_PREFIX)),
-                           audacityPathList);
+      wxT(INSTALL_PREFIX)),
+      audacityPathList);
    AddUniquePathToPathList(wxString::Format(wxT("%s/share/doc/audacity"),
-                                            wxT(INSTALL_PREFIX)),
-                           audacityPathList);
+      wxT(INSTALL_PREFIX)),
+      audacityPathList);
 #endif //AUDACITY_NAME
 
    AddUniquePathToPathList(wxString::Format(wxT("%s/share/locale"),
-                                            wxT(INSTALL_PREFIX)),
-                           audacityPathList);
+      wxT(INSTALL_PREFIX)),
+      audacityPathList);
 
    AddUniquePathToPathList(wxString::Format(wxT("./locale")),
-                           audacityPathList);
+      audacityPathList);
 
 #endif //__WXGTK__
 
@@ -1230,10 +1242,12 @@ bool AudacityApp::OnInit()
    // On Windows, the path to the Audacity program is in argv[0]
    wxString progPath = wxPathOnly(argv[0]);
    AddUniquePathToPathList(progPath, audacityPathList);
-   AddUniquePathToPathList(progPath+wxT("\\Languages"), audacityPathList);
+   AddUniquePathToPathList(progPath + wxT("\\Languages"), audacityPathList);
 
-   defaultTempDir.Printf(wxT("%s\\audacity_temp"),
-                         tmpDirLoc.c_str());
+   // See bug #1271 for explanation of location
+   tmpDirLoc = FileNames::MkDir(wxStandardPaths::Get().GetUserLocalDataDir());
+   defaultTempDir.Printf(wxT("%s\\SessionData"),
+      tmpDirLoc.c_str());
 #endif //__WXWSW__
 
 #ifdef __WXMAC__
@@ -1243,15 +1257,15 @@ bool AudacityApp::OnInit()
    AddUniquePathToPathList(progPath, audacityPathList);
    // If Audacity is a "bundle" package, then the root directory is
    // the great-great-grandparent of the directory containing the executable.
-   AddUniquePathToPathList(progPath+wxT("/../../../"), audacityPathList);
+   AddUniquePathToPathList(progPath + wxT("/../../../"), audacityPathList);
 
    // These allow for searching the "bundle"
-   AddUniquePathToPathList(progPath+wxT("/../"), audacityPathList);
-   AddUniquePathToPathList(progPath+wxT("/../Resources"), audacityPathList);
+   AddUniquePathToPathList(progPath + wxT("/../"), audacityPathList);
+   AddUniquePathToPathList(progPath + wxT("/../Resources"), audacityPathList);
 
    defaultTempDir.Printf(wxT("%s/audacity-%s"),
-                         tmpDirLoc.c_str(),
-                         wxGetUserId().c_str());
+      tmpDirLoc.c_str(),
+      wxGetUserId().c_str());
 #endif //__WXMAC__
 
    // Define languanges for which we have translations, but that are not yet
@@ -1269,9 +1283,9 @@ bool AudacityApp::OnInit()
    // Initialize preferences and language
    InitPreferences();
 
-   #if defined(__WXMSW__) && !defined(__WXUNIVERSAL__) && !defined(__CYGWIN__)
-      this->AssociateFileTypes();
-   #endif
+#if defined(__WXMSW__) && !defined(__WXUNIVERSAL__) && !defined(__CYGWIN__)
+   this->AssociateFileTypes();
+#endif
 
    // TODO - read the number of files to store in history from preferences
    mRecentFiles = new FileHistory(ID_RECENT_LAST - ID_RECENT_FIRST + 1, ID_RECENT_CLEAR);
@@ -1289,10 +1303,10 @@ bool AudacityApp::OnInit()
       return false;
    }
 
-//<<<< Try to avoid dialogs before this point.
-// The reason is that InitTempDir starts the single instance checker.
-// If we're waiitng in a dialog before then we can very easily
-// start multiple instances, defeating the single instance checker.
+   //<<<< Try to avoid dialogs before this point.
+   // The reason is that InitTempDir starts the single instance checker.
+   // If we're waiitng in a dialog before then we can very easily
+   // start multiple instances, defeating the single instance checker.
 
    // Initialize the CommandHandler
    InitCommandHandler();
@@ -1353,68 +1367,74 @@ bool AudacityApp::OnInit()
    }
 
    // BG: Create a temporary window to set as the top window
-   wxImage logoimage((const char **) AudacityLogoWithName_xpm);
+   wxImage logoimage((const char **)AudacityLogoWithName_xpm);
    logoimage.Rescale(logoimage.GetWidth() / 2, logoimage.GetHeight() / 2);
    wxBitmap logo(logoimage);
 
-   wxSplashScreen *temporarywindow =
-      new wxSplashScreen(logo,
-                         wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_NO_TIMEOUT,
-                         0,
-                         NULL,
-                         wxID_ANY,
-                         wxDefaultPosition,
-                         wxDefaultSize,
-                         wxSTAY_ON_TOP);
-   temporarywindow->SetTitle(_("Audacity is starting up..."));
-   SetTopWindow(temporarywindow);
-   wxEventLoopBase::GetActive()->YieldFor(wxEVT_CATEGORY_UI);
+   AudacityProject *project;
+   {
+      wxSplashScreen temporarywindow(
+         logo,
+         wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_NO_TIMEOUT,
+         0,
+         NULL,
+         wxID_ANY,
+         wxDefaultPosition,
+         wxDefaultSize,
+         wxSTAY_ON_TOP);
+      temporarywindow.SetTitle(_("Audacity is starting up..."));
+      SetTopWindow(&temporarywindow);
+      wxEventLoopBase::GetActive()->YieldFor(wxEVT_CATEGORY_UI);
 
-   //JKC: Would like to put module loading here.
+      //JKC: Would like to put module loading here.
 
-   // More initialization
+      // More initialization
 
-   InitDitherers();
-   InitAudioIO();
+      InitDitherers();
+      InitAudioIO();
 
 #ifdef __WXMAC__
 
-   // On the Mac, users don't expect a program to quit when you close the last window.
-   // Create a menubar that will show when all project windows are closed.
+      // On the Mac, users don't expect a program to quit when you close the last window.
+      // Create a menubar that will show when all project windows are closed.
 
-   wxMenu *fileMenu = new wxMenu();
-   wxMenu *recentMenu = new wxMenu();
-   fileMenu->Append(wxID_NEW, wxString(_("&New")) + wxT("\tCtrl+N"));
-   fileMenu->Append(wxID_OPEN, wxString(_("&Open...")) + wxT("\tCtrl+O"));
-   fileMenu->AppendSubMenu(recentMenu, _("Open &Recent..."));
-   fileMenu->Append(wxID_ABOUT, _("&About Audacity..."));
-   fileMenu->Append(wxID_PREFERENCES, wxString(_("&Preferences...")) + wxT("\tCtrl+,"));
+      wxMenu *fileMenu = new wxMenu();
+      wxMenu *recentMenu = new wxMenu();
+      fileMenu->Append(wxID_NEW, wxString(_("&New")) + wxT("\tCtrl+N"));
+      fileMenu->Append(wxID_OPEN, wxString(_("&Open...")) + wxT("\tCtrl+O"));
+      fileMenu->AppendSubMenu(recentMenu, _("Open &Recent..."));
+      fileMenu->Append(wxID_ABOUT, _("&About Audacity..."));
+      fileMenu->Append(wxID_PREFERENCES, wxString(_("&Preferences...")) + wxT("\tCtrl+,"));
 
-   wxMenuBar *menuBar = new wxMenuBar();
-   menuBar->Append(fileMenu, _("&File"));
+      {
+         auto menuBar = std::make_unique<wxMenuBar>();
+         menuBar->Append(fileMenu, _("&File"));
 
-   wxMenuBar::MacSetCommonMenuBar(menuBar);
+         // PRL:  Are we sure wxWindows will not leak this menuBar?
+         // The online documentation is not explicit.
+         wxMenuBar::MacSetCommonMenuBar(menuBar.release());
+      }
 
-   mRecentFiles->UseMenu(recentMenu);
-   mRecentFiles->AddFilesToMenu(recentMenu);
+      mRecentFiles->UseMenu(recentMenu);
+      mRecentFiles->AddFilesToMenu(recentMenu);
 
-   SetExitOnFrameDelete(false);
+      SetExitOnFrameDelete(false);
 
 #endif //__WXMAC__
 
-   AudacityProject *project = CreateNewAudacityProject();
-   mCmdHandler->SetProject(project);
-   wxWindow * pWnd = MakeHijackPanel() ;
-   if( pWnd )
-   {
-      project->Show( false );
-      pWnd->SetParent( project );
-      SetTopWindow(pWnd);
-      pWnd->Show( true );
-   }
+      project = CreateNewAudacityProject();
+      mCmdHandler->SetProject(project);
+      wxWindow * pWnd = MakeHijackPanel();
+      if (pWnd)
+      {
+         project->Show(false);
+         pWnd->SetParent(project);
+         SetTopWindow(pWnd);
+         pWnd->Show(true);
+      }
 
-   temporarywindow->Show(false);
-   delete temporarywindow;
+      temporarywindow.Show(false);
+   }
 
    if( project->mShowSplashScreen )
       project->OnHelpWelcome();
@@ -1502,6 +1522,24 @@ void AudacityApp::OnReceiveCommand(AppCommandEvent &event)
    mCmdHandler->OnReceiveCommand(event);
 }
 
+// We now disallow temp directory name that puts it where cleaner apps will 
+// try to clean out the files.  
+bool AudacityApp::IsTempDirectoryNameOK( const wxString & Name ){
+#ifndef  __WXMSW__ 
+   return true;
+#else
+   wxFileName tmpFile;
+   tmpFile.AssignTempFileName(wxT("nn"));
+   // use Long Path to expand out any abbreviated long substrings.
+   wxString BadPath = tmpFile.GetLongPath();
+   ::wxRemoveFile(tmpFile.GetFullPath());
+   BadPath = BadPath.BeforeLast( '\\' ) + "\\";
+   wxFileName cmpFile( Name );
+   wxString NameCanonical = cmpFile.GetLongPath( ) + "\\";
+   return !(NameCanonical.StartsWith( BadPath ));
+#endif
+}
+
 bool AudacityApp::InitTempDir()
 {
    // We need to find a temp directory location.
@@ -1521,8 +1559,9 @@ bool AudacityApp::InitTempDir()
    wxLogNull logNo;
 
    // Try temp dir that was stored in prefs first
-
-   if (tempFromPrefs != wxT("")) {
+   if( !IsTempDirectoryNameOK( tempFromPrefs ) ){
+      ;// Bad name?  Don't try and use it.
+   } else if (tempFromPrefs != wxT("")) {
       if (wxDirExists(tempFromPrefs))
          temp = tempFromPrefs;
       else if (wxMkdir(tempFromPrefs, 0755))
@@ -1553,7 +1592,11 @@ bool AudacityApp::InitTempDir()
 
    if (temp == wxT("")) {
       // Failed
-      wxMessageBox(_("Audacity could not find a place to store temporary files.\nPlease enter an appropriate directory in the preferences dialog."));
+      if( !IsTempDirectoryNameOK( tempFromPrefs ) ) {
+         wxMessageBox(_("Audacity could not find a safe place to store temporary files.\nAudacity needs a place where automatic cleanup programs won't delete the temporary files.\nPlease enter an appropriate directory in the preferences dialog."));
+      } else {
+         wxMessageBox(_("Audacity could not find a place to store temporary files.\nPlease enter an appropriate directory in the preferences dialog."));
+      }
 
       // Only want one page of the preferences
       DirectoriesPrefsFactory directoriesPrefsFactory;
@@ -1587,7 +1630,7 @@ bool AudacityApp::InitTempDir()
 //
 // Use "dir" for creating lockfiles (on OS X and Unix).
 
-bool AudacityApp::CreateSingleInstanceChecker(wxString dir)
+bool AudacityApp::CreateSingleInstanceChecker(const wxString &dir)
 {
    wxString name = wxString::Format(wxT("audacity-lock-%s"), wxGetUserId().c_str());
    mChecker = new wxSingleInstanceChecker();
@@ -1825,12 +1868,12 @@ wxCmdLineParser *AudacityApp::ParseCommandLine()
 }
 
 // static
-void AudacityApp::AddUniquePathToPathList(wxString path,
+void AudacityApp::AddUniquePathToPathList(const wxString &pathArg,
                                           wxArrayString &pathList)
 {
-   wxFileName pathNorm = path;
+   wxFileName pathNorm = pathArg;
    pathNorm.Normalize();
-   path = pathNorm.GetFullPath();
+   wxString path = pathNorm.GetFullPath();
 
    for(unsigned int i=0; i<pathList.GetCount(); i++) {
       if (wxFileName(path) == wxFileName(pathList[i]))
@@ -1841,9 +1884,10 @@ void AudacityApp::AddUniquePathToPathList(wxString path,
 }
 
 // static
-void AudacityApp::AddMultiPathsToPathList(wxString multiPathString,
+void AudacityApp::AddMultiPathsToPathList(const wxString &multiPathStringArg,
                                           wxArrayString &pathList)
 {
+   wxString multiPathString(multiPathStringArg);
    while (multiPathString != wxT("")) {
       wxString onePath = multiPathString.BeforeFirst(wxPATH_SEP[0]);
       multiPathString = multiPathString.AfterFirst(wxPATH_SEP[0]);

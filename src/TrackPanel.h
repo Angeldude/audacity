@@ -21,9 +21,9 @@
 
 #include "Experimental.h"
 #include "audacity/Types.h"
-#include "UndoManager.h" //JKC: Included for PUSH_XXX definitions.
 #include "widgets/NumericTextCtrl.h"
 
+#include "SelectedRegion.h"
 #include "WaveTrackLocation.h"
 
 #include "Snap.h"
@@ -55,6 +55,8 @@ class Envelope;
 
 // Declared elsewhere, to reduce compilation dependencies
 class TrackPanelListener;
+
+enum class UndoPush : unsigned char;
 
 // JKC Nov 2011: Disabled warning C4251 which is to do with DLL linkage
 // and only a worry when there are DLLs using the structures.
@@ -123,7 +125,7 @@ private:
 const int DragThreshold = 3;// Anything over 3 pixels is a drag, else a click.
 
 
-class AUDACITY_DLL_API TrackPanel:public wxPanel {
+class AUDACITY_DLL_API TrackPanel final : public wxPanel {
  public:
 
    TrackPanel(wxWindow * parent,
@@ -457,8 +459,9 @@ protected:
    virtual void MakeParentRedrawScrollbars();
 
    // AS: Pushing the state preserves state for Undo operations.
-   virtual void MakeParentPushState(wxString desc, wxString shortDesc,
-                            int flags = PUSH_AUTOSAVE);
+   virtual void MakeParentPushState(const wxString &desc, const wxString &shortDesc); // use UndoPush::AUTOSAVE
+   virtual void MakeParentPushState(const wxString &desc, const wxString &shortDesc,
+                            UndoPush flags);
    virtual void MakeParentModifyState(bool bWantsAutoSave);    // if true, writes auto-save file. Should set only if you really want the state change restored after
                                                                // a crash, as it can take many seconds for large (eg. 10 track-hours) projects
 
@@ -514,7 +517,8 @@ public:
    ViewInfo * GetViewInfo(){ return mViewInfo;}
    TrackPanelListener * GetListener(){ return mListener;}
    AdornedRulerPanel * GetRuler(){ return mRuler;}
-// JKC and here is a factory function which just does 'new' in standard Audacity.
+// JKC and here is a factory function which just does 'NEW' in standard Audacity.
+   // Precondition: parent != NULL
    static TrackPanel *(*FactoryFunction)(wxWindow * parent,
               wxWindowID id,
               const wxPoint & pos,
@@ -559,8 +563,6 @@ protected:
 
    virtual wxString TrackSubText(Track *t);
 
-   virtual bool MoveClipToTrack(WaveClip *clip, WaveTrack* dst);
-
    TrackInfo mTrackInfo;
  public:
     TrackInfo *GetTrackInfo() { return &mTrackInfo; }
@@ -575,7 +577,7 @@ protected:
 
    TrackArtist *mTrackArtist;
 
-   class AUDACITY_DLL_API AudacityTimer:public wxTimer {
+   class AUDACITY_DLL_API AudacityTimer final : public wxTimer {
    public:
      virtual void Notify() {
        // (From Debian)
@@ -638,7 +640,7 @@ protected:
    // and is ignored otherwise.
    double mFreqSelPin;
    const WaveTrack *mFreqSelTrack;
-   std::auto_ptr<SpectrumAnalyst> mFrequencySnapper;
+   std::unique_ptr<SpectrumAnalyst> mFrequencySnapper;
 
    // For toggling of spectral seletion
    double mLastF0;

@@ -168,7 +168,7 @@ int Module::Dispatch(ModuleDispatchTypes type)
    return 0;
 }
 
-void * Module::GetSymbol(wxString name)
+void * Module::GetSymbol(const wxString &name)
 {
    return mLib->GetSymbol(name);
 }
@@ -495,7 +495,7 @@ void ModuleManager::UnloadModule(ModuleInterface *module)
          mLibs.erase(module);
       }
 
-      delete module; //After terminating and unloading, we can safely delete the module
+      delete module; //After terminating and unloading, we can safely DELETE the module
    }
 }
 

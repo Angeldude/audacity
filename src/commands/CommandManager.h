@@ -14,6 +14,7 @@
 
 #include "../Experimental.h"
 
+#include <vector>
 #include <wx/string.h>
 #include <wx/dynarray.h>
 #include <wx/menu.h>
@@ -24,25 +25,35 @@
 
 #include "audacity/Types.h"
 
-class AUDACITY_DLL_API CommandFunctor
+class AUDACITY_DLL_API CommandFunctor /* not final */
 {
 public:
    CommandFunctor(){};
    virtual ~CommandFunctor(){};
-   virtual void operator()(int index = 0, const wxEvent *e = NULL) = 0;
+   virtual void operator()(int index, const wxEvent *e) = 0;
 };
 
 struct MenuBarListEntry
 {
+   MenuBarListEntry(const wxString &name_, wxMenuBar *menubar_)
+      : name(name_), menubar(menubar_)
+   {}
+
    wxString name;
-   wxMenuBar *menubar;
+   wxMenuBar *menubar; // This structure does not assume memory ownership!
 };
 
 struct SubMenuListEntry
 {
+   SubMenuListEntry(const wxString &name_, wxMenu *menu_)
+      : name(name_), menu(menu_)
+   {}
+
    wxString name;
    wxMenu *menu;
 };
+
+using CommandFunctorPointer = std::shared_ptr <CommandFunctor>;
 
 struct CommandListEntry
 {
@@ -54,7 +65,7 @@ struct CommandListEntry
    wxString labelPrefix;
    wxString labelTop;
    wxMenu *menu;
-   CommandFunctor *callback;
+   CommandFunctorPointer callback;
    bool multi;
    int index;
    int count;
@@ -66,16 +77,19 @@ struct CommandListEntry
    wxUint32 mask;
 };
 
-WX_DEFINE_USER_EXPORTED_ARRAY(MenuBarListEntry *, MenuBarList, class AUDACITY_DLL_API);
-WX_DEFINE_USER_EXPORTED_ARRAY(SubMenuListEntry *, SubMenuList, class AUDACITY_DLL_API);
-WX_DEFINE_USER_EXPORTED_ARRAY(CommandListEntry *, CommandList, class AUDACITY_DLL_API);
+using MenuBarList = std::vector < MenuBarListEntry >;
+using SubMenuList = std::vector < SubMenuListEntry >;
+
+// This is an array of pointers, not structures, because the hash maps also point to them,
+// so we don't want the structures to relocate with vector operations.
+using CommandList = std::vector < std::unique_ptr<CommandListEntry> > ;
 
 WX_DECLARE_STRING_HASH_MAP_WITH_DECL(CommandListEntry *, CommandNameHash, class AUDACITY_DLL_API);
 WX_DECLARE_HASH_MAP_WITH_DECL(int, CommandListEntry *, wxIntegerHash, wxIntegerEqual, CommandIDHash, class AUDACITY_DLL_API);
 
 class AudacityProject;
 
-class AUDACITY_DLL_API CommandManager: public XMLTagHandler
+class AUDACITY_DLL_API CommandManager final : public XMLTagHandler
 {
  public:
 
@@ -86,13 +100,16 @@ class AUDACITY_DLL_API CommandManager: public XMLTagHandler
    CommandManager();
    virtual ~CommandManager();
 
+   CommandManager(const CommandManager&) = delete;
+   CommandManager &operator= (const CommandManager&) = delete;
+
    void PurgeData();
 
    //
    // Creating menus and adding commands
    //
 
-   wxMenuBar *AddMenuBar(const wxString & sMenu);
+   std::unique_ptr<wxMenuBar> AddMenuBar(const wxString & sMenu);
 
    void BeginMenu(const wxString & tName);
    void EndMenu();
@@ -105,35 +122,35 @@ class AUDACITY_DLL_API CommandManager: public XMLTagHandler
 
    void InsertItem(const wxString & name,
                    const wxString & label,
-                   CommandFunctor *callback,
+                   const CommandFunctorPointer &callback,
                    const wxString & after,
                    int checkmark = -1);
 
    void AddItemList(const wxString & name,
                     const wxArrayString & labels,
-                    CommandFunctor *callback);
+                    const CommandFunctorPointer &callback);
 
    void AddCheck(const wxChar *name,
                  const wxChar *label,
-                 CommandFunctor *callback,
+                 const CommandFunctorPointer &callback,
                  int checkmark = 0);
 
    void AddCheck(const wxChar *name,
                  const wxChar *label,
-                 CommandFunctor *callback,
+                 const CommandFunctorPointer &callback,
                  int checkmark,
                  unsigned int flags,
                  unsigned int mask);
 
    void AddItem(const wxChar *name,
                 const wxChar *label,
-                CommandFunctor *callback,
+                const CommandFunctorPointer &callback,
                 unsigned int flags = NoFlagsSpecifed,
                 unsigned int mask = NoFlagsSpecifed);
 
    void AddItem(const wxChar *name,
                 const wxChar *label_in,
-                CommandFunctor *callback,
+                const CommandFunctorPointer &callback,
                 const wxChar *accel,
                 unsigned int flags = NoFlagsSpecifed,
                 unsigned int mask = NoFlagsSpecifed,
@@ -145,29 +162,29 @@ class AUDACITY_DLL_API CommandManager: public XMLTagHandler
    // keyboard shortcut.
    void AddCommand(const wxChar *name,
                    const wxChar *label,
-                   CommandFunctor *callback,
+                   const CommandFunctorPointer &callback,
                    unsigned int flags = NoFlagsSpecifed,
                    unsigned int mask = NoFlagsSpecifed);
 
    void AddCommand(const wxChar *name,
                    const wxChar *label,
-                   CommandFunctor *callback,
+                   const CommandFunctorPointer &callback,
                    const wxChar *accel,
                    unsigned int flags = NoFlagsSpecifed,
                    unsigned int mask = NoFlagsSpecifed);
 
    void AddGlobalCommand(const wxChar *name,
                          const wxChar *label,
-                         CommandFunctor *callback,
+                         const CommandFunctorPointer &callback,
                          const wxChar *accel);
    //
    // Command masks
    //
 
-   // For new items/commands
+   // For NEW items/commands
    void SetDefaultFlags(wxUint32 flags, wxUint32 mask);
 
-   void SetCommandFlags(wxString name, wxUint32 flags, wxUint32 mask);
+   void SetCommandFlags(const wxString &name, wxUint32 flags, wxUint32 mask);
    void SetCommandFlags(const wxChar **names,
                         wxUint32 flags, wxUint32 mask);
    // Pass multiple command names as const wxChar *, terminated by NULL
@@ -178,16 +195,16 @@ class AUDACITY_DLL_API CommandManager: public XMLTagHandler
    //
 
    void EnableUsingFlags(wxUint32 flags, wxUint32 mask);
-   void Enable(wxString name, bool enabled);
-   void Check(wxString name, bool checked);
-   void Modify(wxString name, wxString newLabel);
+   void Enable(const wxString &name, bool enabled);
+   void Check(const wxString &name, bool checked);
+   void Modify(const wxString &name, const wxString &newLabel);
 
    //
    // Modifying accelerators
    //
 
-   void SetKeyFromName(wxString name, wxString key);
-   void SetKeyFromIndex(int i, wxString key);
+   void SetKeyFromName(const wxString &name, const wxString &key);
+   void SetKeyFromIndex(int i, const wxString &key);
 
    //
    // Executing commands
@@ -214,11 +231,11 @@ class AUDACITY_DLL_API CommandManager: public XMLTagHandler
 #endif
       bool includeMultis);
 
-   wxString GetLabelFromName(wxString name);
-   wxString GetPrefixedLabelFromName(wxString name);
-   wxString GetCategoryFromName(wxString name);
-   wxString GetKeyFromName(wxString name);
-   wxString GetDefaultKeyFromName(wxString name);
+   wxString GetLabelFromName(const wxString &name);
+   wxString GetPrefixedLabelFromName(const wxString &name);
+   wxString GetCategoryFromName(const wxString &name);
+   wxString GetKeyFromName(const wxString &name);
+   wxString GetDefaultKeyFromName(const wxString &name);
 
    bool GetEnabled(const wxString &name);
 
@@ -242,7 +259,7 @@ protected:
    CommandListEntry *NewIdentifier(const wxString & name,
                                    const wxString & label,
                                    wxMenu *menu,
-                                   CommandFunctor *callback,
+                                   const CommandFunctorPointer &callback,
                                    bool multi,
                                    int index,
                                    int count);
@@ -250,7 +267,7 @@ protected:
                                    const wxString & label,
                                    const wxString & accel,
                                    wxMenu *menu,
-                                   CommandFunctor *callback,
+                                   const CommandFunctorPointer &callback,
                                    bool multi,
                                    int index,
                                    int count);

@@ -93,7 +93,7 @@ bool ExportPlugin::CheckFileName(wxFileName & WXUNUSED(filename), int WXUNUSED(f
   return true;
 }
 
-/** \brief Add a new entry to the list of formats this plug-in can export
+/** \brief Add a NEW entry to the list of formats this plug-in can export
  *
  * To configure the format use SetFormat, SetCanMetaData etc with the index of
  * the format.
@@ -185,7 +185,7 @@ wxString ExportPlugin::GetMask(int index)
    wxString mask = GetDescription(index) + wxT("|");
 
    // Build the mask
-   wxString ext = GetExtension(index);
+   // wxString ext = GetExtension(index);
    wxArrayString exts = GetExtensions(index);
    for (size_t i = 0; i < exts.GetCount(); i++) {
       mask += wxT("*.") + exts[i] + wxT(";");
@@ -204,7 +204,7 @@ bool ExportPlugin::GetCanMetaData(int index)
    return mFormatInfos[index].mCanMetaData;
 }
 
-bool ExportPlugin::IsExtension(wxString & ext, int index)
+bool ExportPlugin::IsExtension(const wxString & ext, int index)
 {
    bool isext = false;
    for (int i = index; i < GetFormatCount(); i = GetFormatCount())
@@ -225,7 +225,8 @@ bool ExportPlugin::DisplayOptions(wxWindow * WXUNUSED(parent), int WXUNUSED(form
 
 wxWindow *ExportPlugin::OptionsCreate(wxWindow *parent, int WXUNUSED(format))
 {
-   wxPanel *p = new wxPanel(parent, wxID_ANY);
+   wxASSERT(parent); // To justify safenew
+   wxPanel *p = safenew wxPanel(parent, wxID_ANY);
    ShuttleGui S(p, eIsCreatingFromPrefs);
 
    S.StartHorizontalLay(wxCENTER);
@@ -239,35 +240,6 @@ wxWindow *ExportPlugin::OptionsCreate(wxWindow *parent, int WXUNUSED(format))
    S.EndHorizontalLay();
 
    return p;
-}
-
-int ExportPlugin::Export(AudacityProject *project,
-                          int channels,
-                          wxString fName,
-                          bool selectedOnly,
-                          double t0,
-                          double t1,
-                          MixerSpec *mixerSpec,
-                          Tags * WXUNUSED(metadata),
-                          int subformat)
-{
-   if (project == NULL) {
-      project = GetActiveProject();
-   }
-
-  return DoExport(project, channels, fName, selectedOnly, t0, t1, mixerSpec, subformat);
-}
-
-int ExportPlugin::DoExport(AudacityProject * WXUNUSED(project),
-                            int WXUNUSED(channels),
-                            wxString WXUNUSED(fName),
-                            bool WXUNUSED(selectedOnly),
-                            double WXUNUSED(t0),
-                            double WXUNUSED(t1),
-                            MixerSpec * WXUNUSED(mixerSpec),
-                            int WXUNUSED(subformat))
-{
-   return false;
 }
 
 //Create a mixer by computing the time warp factor
@@ -392,7 +364,7 @@ bool Exporter::Process(AudacityProject *project, bool selectedOnly, double t0, d
 
    // Let user edit MetaData
    if (mPlugins[mFormat]->GetCanMetaData(mSubFormat)) {
-      if (!(project->GetTags()->ShowEditDialog(project, _("Edit Metadata"), mProject->GetShowId3Dialog()))) {
+      if (!(project->DoEditMetadata(_("Edit Metadata Tags for Export"), _("Exported Tags"), mProject->GetShowId3Dialog()))) {
          return false;
       }
    }
@@ -881,7 +853,7 @@ void Exporter::CreateUserPane(wxWindow *parent)
       {
          S.StartStatic(_("Format Options"), 1);
          {
-            mBook = new wxSimplebook(parent);
+            mBook = safenew wxSimplebook(S.GetParent());
             S.AddWindow(mBook, wxEXPAND);
                                   
             for (size_t i = 0; i < mPlugins.GetCount(); i++)
@@ -951,7 +923,7 @@ ExportMixerPanel::~ExportMixerPanel()
 }
 
 //set the font on memDC such that text can fit in specified width and height
-void ExportMixerPanel::SetFont( wxMemoryDC &memDC, wxString text, int width,
+void ExportMixerPanel::SetFont(wxMemoryDC &memDC, const wxString &text, int width,
       int height )
 {
    int l = 0, u = 13, m, w, h;
@@ -1211,34 +1183,41 @@ ExportMixerDialog::ExportMixerDialog( TrackList *tracks, bool selectedOnly,
    if (maxNumChannels > 32)
       maxNumChannels = 32;
 
-   mMixerSpec = new MixerSpec( numTracks, maxNumChannels );
+   mMixerSpec = new MixerSpec(numTracks, maxNumChannels);
+   
+   wxBoxSizer *vertSizer;
+   {
+      auto uVertSizer = std::make_unique<wxBoxSizer>(wxVERTICAL);
+      vertSizer = uVertSizer.get();
 
-   wxBoxSizer *vertSizer = new wxBoxSizer( wxVERTICAL );
+      wxWindow *mixerPanel = safenew ExportMixerPanel(mMixerSpec, mTrackNames, this,
+         ID_MIXERPANEL, wxDefaultPosition, wxSize(400, -1));
+      mixerPanel->SetName(_("Mixer Panel"));
+      vertSizer->Add(mixerPanel, 1, wxEXPAND | wxALIGN_CENTRE | wxALL, 5);
 
-   wxWindow *mixerPanel = new ExportMixerPanel( mMixerSpec, mTrackNames, this,
-         ID_MIXERPANEL, wxDefaultPosition, wxSize( 400, -1 ) );
-   mixerPanel->SetName(_("Mixer Panel"));
-   vertSizer->Add( mixerPanel, 1, wxEXPAND | wxALIGN_CENTRE | wxALL, 5 );
+      {
+         auto horSizer = std::make_unique<wxBoxSizer>(wxHORIZONTAL);
 
-   wxBoxSizer *horSizer = new wxBoxSizer( wxHORIZONTAL );
+         wxString label;
+         label.Printf(_("Output Channels: %2d"), mMixerSpec->GetNumChannels());
+         mChannelsText = safenew wxStaticText(this, -1, label);
+         horSizer->Add(mChannelsText, 0, wxALIGN_LEFT | wxALL, 5);
 
-   wxString label;
-   label.Printf( _( "Output Channels: %2d" ), mMixerSpec->GetNumChannels() );
-   mChannelsText = new wxStaticText( this, -1, label);
-   horSizer->Add( mChannelsText, 0, wxALIGN_LEFT | wxALL, 5 );
+         wxSlider *channels = safenew wxSlider(this, ID_SLIDER_CHANNEL,
+            mMixerSpec->GetNumChannels(), 1, mMixerSpec->GetMaxNumChannels(),
+            wxDefaultPosition, wxSize(300, -1));
+         channels->SetName(label);
+         horSizer->Add(channels, 0, wxEXPAND | wxALL, 5);
 
-   wxSlider *channels = new wxSlider( this, ID_SLIDER_CHANNEL,
-         mMixerSpec->GetNumChannels(), 1, mMixerSpec->GetMaxNumChannels(),
-         wxDefaultPosition, wxSize( 300, -1 ) );
-   channels->SetName(label);
-   horSizer->Add( channels, 0, wxEXPAND | wxALL, 5 );
+         vertSizer->Add(horSizer.release(), 0, wxALIGN_CENTRE | wxALL, 5);
+      }
 
-   vertSizer->Add( horSizer, 0, wxALIGN_CENTRE | wxALL, 5 );
+      vertSizer->Add(CreateStdButtonSizer(this, eCancelButton | eOkButton).release(), 0, wxEXPAND);
 
-   vertSizer->Add( CreateStdButtonSizer(this, eCancelButton|eOkButton), 0, wxEXPAND );
+      SetAutoLayout(true);
+      SetSizer(uVertSizer.release());
+   }
 
-   SetAutoLayout( true );
-   SetSizer( vertSizer );
    vertSizer->Fit( this );
    vertSizer->SetSizeHints( this );
 

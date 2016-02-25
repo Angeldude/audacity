@@ -24,7 +24,7 @@
 
 #include "ImageRoll.h"
 
-class AButton: public wxWindow {
+class AButton final : public wxWindow {
    friend class AButtonAx;
    class Listener;
 
@@ -164,7 +164,7 @@ class AButton: public wxWindow {
    wxRect mFocusRect;
    bool mForceFocusRect;
 
-   std::auto_ptr<Listener> mListener;
+   std::unique_ptr<Listener> mListener;
 
 public:
 
@@ -173,7 +173,7 @@ public:
 
 #if wxUSE_ACCESSIBILITY
 
-class AButtonAx: public wxWindowAccessible
+class AButtonAx final : public wxWindowAccessible
 {
 public:
    AButtonAx(wxWindow * window);

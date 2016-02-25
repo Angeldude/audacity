@@ -95,7 +95,7 @@ void Track::Init(const Track &orig)
          mDirManager->Deref(); // MM: unreference old DirManager
       }
 
-      // MM: Assign and ref new DirManager
+      // MM: Assign and ref NEW DirManager
       mDirManager = orig.mDirManager;
       mDirManager->Ref();
    }
@@ -283,7 +283,7 @@ bool Track::IsSyncLockSelected() const
       return false;
 
    SyncLockedTracksIterator git(mList);
-   Track *t = git.First(const_cast<Track*>(this));
+   Track *t = git.StartWith(const_cast<Track*>(this));
 
    if (!t) {
       // Not in a sync-locked group.
@@ -578,7 +578,7 @@ SyncLockedTracksIterator::SyncLockedTracksIterator(TrackList * val)
 {
 }
 
-Track *SyncLockedTracksIterator::First(Track * member)
+Track *SyncLockedTracksIterator::StartWith(Track * member)
 {
    Track *t = NULL;
 

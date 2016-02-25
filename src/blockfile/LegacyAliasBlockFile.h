@@ -15,7 +15,7 @@
 #include "PCMAliasBlockFile.h"
 
 /// An AliasBlockFile that references uncompressed data in an existing file
-class LegacyAliasBlockFile : public PCMAliasBlockFile
+class LegacyAliasBlockFile final : public PCMAliasBlockFile
 {
  public:
 
@@ -35,7 +35,7 @@ class LegacyAliasBlockFile : public PCMAliasBlockFile
    virtual BlockFile *Copy(wxFileName fileName);
    virtual void Recover();
 
-   static BlockFile *BuildFromXML(wxString projDir, const wxChar **attrs);
+   static BlockFile *BuildFromXML(const wxString &projDir, const wxChar **attrs);
 };
 
 #endif

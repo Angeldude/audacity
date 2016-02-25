@@ -78,7 +78,7 @@ class LWSlider
 
    // MM: Construct customizable slider
    LWSlider(wxWindow * parent,
-            wxString name,
+            const wxString &name,
             const wxPoint &pos,
             const wxSize &size,
             float minValue,
@@ -92,7 +92,7 @@ class LWSlider
 
    // Construct predefined slider
    LWSlider(wxWindow * parent,
-            wxString name,
+            const wxString &name,
             const wxPoint &pos,
             const wxSize &size,
             int style,
@@ -101,7 +101,7 @@ class LWSlider
             int orientation = wxHORIZONTAL); // wxHORIZONTAL or wxVERTICAL. wxVERTICAL is currently only for DB_SLIDER.
 
    void Init(wxWindow * parent,
-             wxString name,
+             const wxString &name,
              const wxPoint &pos,
              const wxSize &size,
              float minValue,
@@ -239,7 +239,7 @@ class LWSlider
    wxBitmap *mThumbBitmap;
 
    // AD: True if this object owns *mThumbBitmap (sometimes mThumbBitmap points
-   // to an object we shouldn't delete) -- once we get theming totally right
+   // to an object we shouldn't DELETE) -- once we get theming totally right
    // this should go away
    bool mThumbBitmapAllocated;
 
@@ -248,14 +248,14 @@ class LWSlider
    bool mEnabled;
 };
 
-class ASlider :public wxPanel
+class ASlider /* not final */ : public wxPanel
 {
    friend class ASliderAx;
 
  public:
    ASlider( wxWindow * parent,
             wxWindowID id,
-            wxString name,
+            const wxString &name,
             const wxPoint & pos,
             const wxSize & size,
             int style = FRAC_SLIDER,
@@ -317,7 +317,7 @@ class ASlider :public wxPanel
 // This is a modal dialog that contains an ASlider
 // and a text-entry box which can be used to set the
 // value of a slider.
-class SliderDialog: public wxDialog
+class SliderDialog final : public wxDialog
 {
  public:
    SliderDialog(wxWindow * parent, wxWindowID id,
@@ -349,7 +349,7 @@ class SliderDialog: public wxDialog
 
 #if wxUSE_ACCESSIBILITY
 
-class ASliderAx: public wxWindowAccessible
+class ASliderAx final : public wxWindowAccessible
 {
 public:
    ASliderAx(wxWindow * window);

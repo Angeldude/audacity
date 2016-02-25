@@ -21,7 +21,7 @@ class wxChoice;
 class wxStaticText;
 struct DeviceSourceMap;
 
-class DeviceToolBar:public ToolBar {
+class DeviceToolBar final : public ToolBar {
 
  public:
 
@@ -62,6 +62,7 @@ class DeviceToolBar:public ToolBar {
    void FillInputChannels();
    void SetDevices(const DeviceSourceMap *in, const DeviceSourceMap *out);
    void RepositionCombos();
+   void SetNames();
    void RegenerateTooltips();
 
    void ShowComboDialog(wxChoice *combo, const wxString &title);

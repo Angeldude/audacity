@@ -155,7 +155,7 @@ Ruler::Ruler()
 
    mTwoTone = false;
 
-   mUseZoomInfo = false;
+   mUseZoomInfo = NULL;
 }
 
 Ruler::~Ruler()
@@ -204,7 +204,7 @@ void Ruler::SetLog(bool log)
    }
 }
 
-void Ruler::SetUnits(wxString units)
+void Ruler::SetUnits(const wxString &units)
 {
    // Specify the name of the units (like "dB") if you
    // want numbers like "1.6" formatted as "1.6 dB".
@@ -973,8 +973,8 @@ void Ruler::Update()
 void Ruler::Update(TimeTrack* timetrack)// Envelope *speedEnv, long minSpeed, long maxSpeed )
 {
    const ZoomInfo *zoomInfo = NULL;
-   if (mUseZoomInfo && !mLog && mOrientation == wxHORIZONTAL)
-      zoomInfo = &GetActiveProject()->GetZoomInfo();
+   if (!mLog && mOrientation == wxHORIZONTAL)
+      zoomInfo = mUseZoomInfo;
 
    // This gets called when something has been changed
    // (i.e. we've been invalidated).  Recompute all
@@ -1544,7 +1544,7 @@ void Ruler::SetCustomMajorLabels(wxArrayString *label, int numLabel, int start, 
       mMajorLabels[i].text = label->Item(i);
       mMajorLabels[i].pos  = start + i*step;
    }
-   //Remember: delete majorlabels....
+   //Remember: DELETE majorlabels....
 }
 
 void Ruler::SetCustomMinorLabels(wxArrayString *label, int numLabel, int start, int step)
@@ -1558,7 +1558,7 @@ void Ruler::SetCustomMinorLabels(wxArrayString *label, int numLabel, int start, 
       mMinorLabels[i].text = label->Item(i);
       mMinorLabels[i].pos  = start + i*step;
    }
-   //Remember: delete majorlabels....
+   //Remember: DELETE majorlabels....
 }
 
 void Ruler::Label::Draw(wxDC&dc, bool twoTone) const
@@ -1577,10 +1577,10 @@ void Ruler::Label::Draw(wxDC&dc, bool twoTone) const
    }
 }
 
-void Ruler::SetUseZoomInfo(int leftOffset)
+void Ruler::SetUseZoomInfo(int leftOffset, const ZoomInfo *zoomInfo)
 {
    mLeftOffset = leftOffset;
-   mUseZoomInfo = true;
+   mUseZoomInfo = zoomInfo;
 }
 
 //
@@ -1680,6 +1680,7 @@ AdornedRulerPanel::AdornedRulerPanel(AudacityProject* parent,
                                      const wxSize& size,
                                      ViewInfo *viewinfo)
 :  wxPanel(parent, id, pos, size)
+, mViewInfo(viewinfo)
 {
    SetLabel( _("Timeline") );
    SetName(GetLabel());
@@ -1707,8 +1708,6 @@ AdornedRulerPanel::AdornedRulerPanel(AudacityProject* parent,
    mMouseEventState = mesNone;
    mIsDragging = false;
 
-   mViewInfo = viewinfo;
-
    mOuter = GetClientRect();
 
    mInner = mOuter;
@@ -1717,7 +1716,7 @@ AdornedRulerPanel::AdornedRulerPanel(AudacityProject* parent,
    mInner.width -= 2;      // -2 for left and right bevels
    mInner.height -= 3;     // -3 for top and bottom bevels and bottom line
 
-   mRuler.SetUseZoomInfo(mLeftOffset);
+   mRuler.SetUseZoomInfo(mLeftOffset, mViewInfo);
    mRuler.SetBounds(mInner.GetLeft(),
                     mInner.GetTop(),
                     mInner.GetRight(),
@@ -1759,6 +1758,12 @@ AdornedRulerPanel::~AdornedRulerPanel()
                         wxCommandEventHandler(AdornedRulerPanel::OnCapture),
                         NULL,
                         this);
+
+   if (mBack)
+   {
+      mBackDC.SelectObject(wxNullBitmap);
+      delete mBack;
+   }
 }
 
 void AdornedRulerPanel::UpdatePrefs()
@@ -2232,42 +2237,43 @@ void AdornedRulerPanel::OnCaptureLost(wxMouseCaptureLostEvent & WXUNUSED(evt))
 
 void AdornedRulerPanel::ShowMenu(const wxPoint & pos)
 {
-   wxMenu *rulerMenu = new wxMenu();
+   {
+      wxMenu rulerMenu;
 
-   if (mQuickPlayEnabled)
-      rulerMenu->Append(OnToggleQuickPlayID, _("Disable Quick-Play"));
-   else
-      rulerMenu->Append(OnToggleQuickPlayID, _("Enable Quick-Play"));
+      if (mQuickPlayEnabled)
+         rulerMenu.Append(OnToggleQuickPlayID, _("Disable Quick-Play"));
+      else
+         rulerMenu.Append(OnToggleQuickPlayID, _("Enable Quick-Play"));
 
-   wxMenuItem *dragitem;
-   if (mPlayRegionDragsSelection && !mProject->IsPlayRegionLocked())
-      dragitem = rulerMenu->Append(OnSyncQuickPlaySelID, _("Disable dragging selection"));
-   else
-      dragitem = rulerMenu->Append(OnSyncQuickPlaySelID, _("Enable dragging selection"));
-   dragitem->Enable(mQuickPlayEnabled && !mProject->IsPlayRegionLocked());
+      wxMenuItem *dragitem;
+      if (mPlayRegionDragsSelection && !mProject->IsPlayRegionLocked())
+         dragitem = rulerMenu.Append(OnSyncQuickPlaySelID, _("Disable dragging selection"));
+      else
+         dragitem = rulerMenu.Append(OnSyncQuickPlaySelID, _("Enable dragging selection"));
+      dragitem->Enable(mQuickPlayEnabled && !mProject->IsPlayRegionLocked());
 
 #if wxUSE_TOOLTIPS
-   if (mTimelineToolTip)
-      rulerMenu->Append(OnTimelineToolTipID, _("Disable Timeline Tooltips"));
-   else
-      rulerMenu->Append(OnTimelineToolTipID, _("Enable Timeline Tooltips"));
+      if (mTimelineToolTip)
+         rulerMenu.Append(OnTimelineToolTipID, _("Disable Timeline Tooltips"));
+      else
+         rulerMenu.Append(OnTimelineToolTipID, _("Enable Timeline Tooltips"));
 #endif
 
-   if (mViewInfo->bUpdateTrackIndicator)
-      rulerMenu->Append(OnAutoScrollID, _("Do not scroll while playing"));
-   else
-      rulerMenu->Append(OnAutoScrollID, _("Update display while playing"));
+      if (mViewInfo->bUpdateTrackIndicator)
+         rulerMenu.Append(OnAutoScrollID, _("Do not scroll while playing"));
+      else
+         rulerMenu.Append(OnAutoScrollID, _("Update display while playing"));
 
-   wxMenuItem *prlitem;
-   if (!mProject->IsPlayRegionLocked())
-      prlitem = rulerMenu->Append(OnLockPlayRegionID, _("Lock Play Region"));
-   else
-      prlitem = rulerMenu->Append(OnLockPlayRegionID, _("Unlock Play Region"));
-   prlitem->Enable(mProject->IsPlayRegionLocked() || (mPlayRegionStart != mPlayRegionEnd));
+      wxMenuItem *prlitem;
+      if (!mProject->IsPlayRegionLocked())
+         prlitem = rulerMenu.Append(OnLockPlayRegionID, _("Lock Play Region"));
+      else
+         prlitem = rulerMenu.Append(OnLockPlayRegionID, _("Unlock Play Region"));
+      prlitem->Enable(mProject->IsPlayRegionLocked() || (mPlayRegionStart != mPlayRegionEnd));
 
-   PopupMenu(rulerMenu, pos);
+      PopupMenu(&rulerMenu, pos);
+   }
 
-   delete rulerMenu;
    // dismiss and clear Quick-Play indicator
    mQuickPlayInd = false;
    DrawQuickPlayIndicator(NULL);
@@ -2457,7 +2463,7 @@ void AdornedRulerPanel::DoDrawSelection(wxDC * dc)
 void AdornedRulerPanel::SetLeftOffset(int offset)
 {
    mLeftOffset = offset;
-   mRuler.SetUseZoomInfo(offset);
+   mRuler.SetUseZoomInfo(offset, mViewInfo);
 }
 
 void AdornedRulerPanel::DrawCursor(double time)

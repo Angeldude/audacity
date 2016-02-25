@@ -42,7 +42,7 @@ of the BlockFile system.
 
 #include "FileDialog.h"
 
-class BenchmarkDialog: public wxDialog
+class BenchmarkDialog final : public wxDialog
 {
 public:
    // constructors and destructors
@@ -342,9 +342,9 @@ void BenchmarkDialog::OnRun( wxCommandEvent & WXUNUSED(event))
 
    HoldPrint(true);
 
+   ZoomInfo zoomInfo(0.0, ZoomInfo::GetDefaultZoom());
    DirManager *d = new DirManager();
-   TrackFactory *fact = new TrackFactory(d);
-   WaveTrack *t = fact->NewWaveTrack(int16Sample);
+   WaveTrack *const t = TrackFactory{ d, &zoomInfo }.NewWaveTrack(int16Sample);
    Track *tmp = NULL;
 
    t->SetRate(1);
@@ -539,7 +539,6 @@ void BenchmarkDialog::OnRun( wxCommandEvent & WXUNUSED(event))
    delete[]small2;
    delete[]block;
 
-   delete fact;
    d->Deref();
 
    Sequence::SetMaxDiskBlockSize(oldBlockSize);

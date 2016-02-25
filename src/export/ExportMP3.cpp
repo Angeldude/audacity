@@ -259,7 +259,7 @@ static void InitMP3_Statics()
    }
 }
 
-class ExportMP3Options : public wxPanel
+class ExportMP3Options final : public wxPanel
 {
 public:
 
@@ -556,7 +556,7 @@ int ExportMP3Options::FindIndex(CHOICES *choices, int cnt, int needle, int def)
 #define ID_BROWSE 5000
 #define ID_DLOAD  5001
 
-class FindDialog : public wxDialog
+class FindDialog final : public wxDialog
 {
 public:
 
@@ -1551,7 +1551,7 @@ static void dump_config( 	lame_global_flags*	gfp )
 // ExportMP3
 //----------------------------------------------------------------------------
 
-class ExportMP3 : public ExportPlugin
+class ExportMP3 final : public ExportPlugin
 {
 public:
 
@@ -1564,20 +1564,20 @@ public:
    wxWindow *OptionsCreate(wxWindow *parent, int format);
    int Export(AudacityProject *project,
                int channels,
-               wxString fName,
+               const wxString &fName,
                bool selectedOnly,
                double t0,
                double t1,
                MixerSpec *mixerSpec = NULL,
-               Tags *metadata = NULL,
-               int subformat = 0);
+               const Tags *metadata = NULL,
+               int subformat = 0) override;
 
 private:
 
    int FindValue(CHOICES *choices, int cnt, int needle, int def);
    wxString FindName(CHOICES *choices, int cnt, int needle);
    int AskResample(int bitrate, int rate, int lowrate, int highrate);
-   int AddTags(AudacityProject *project, char **buffer, bool *endOfFile, Tags *tags);
+   int AddTags(AudacityProject *project, char **buffer, bool *endOfFile, const Tags *tags);
 #ifdef USE_LIBID3TAG
    void AddFrame(struct id3_tag *tp, const wxString & n, const wxString & v, const char *name);
 #endif
@@ -1619,12 +1619,12 @@ bool ExportMP3::CheckFileName(wxFileName & WXUNUSED(filename), int WXUNUSED(form
 
 int ExportMP3::Export(AudacityProject *project,
                        int channels,
-                       wxString fName,
+                       const wxString &fName,
                        bool selectionOnly,
                        double t0,
                        double t1,
                        MixerSpec *mixerSpec,
-                       Tags *metadata,
+                       const Tags *metadata,
                        int WXUNUSED(subformat))
 {
    int rate = lrint(project->GetRate());
@@ -1792,47 +1792,47 @@ int ExportMP3::Export(AudacityProject *project,
                    brate);
    }
 
-   ProgressDialog *progress = new ProgressDialog(wxFileName(fName).GetName(), title);
+   {
+      ProgressDialog progress(wxFileName(fName).GetName(), title);
 
-   while (updateResult == eProgressSuccess) {
-      sampleCount blockLen = mixer->Process(inSamples);
+      while (updateResult == eProgressSuccess) {
+         sampleCount blockLen = mixer->Process(inSamples);
 
-      if (blockLen == 0) {
-         break;
-      }
+         if (blockLen == 0) {
+            break;
+         }
 
-      short *mixed = (short *)mixer->GetBuffer();
+         short *mixed = (short *)mixer->GetBuffer();
 
-      if (blockLen < inSamples) {
-         if (channels > 1) {
-            bytes = exporter.EncodeRemainder(mixed,  blockLen , buffer);
+         if (blockLen < inSamples) {
+            if (channels > 1) {
+               bytes = exporter.EncodeRemainder(mixed, blockLen, buffer);
+            }
+            else {
+               bytes = exporter.EncodeRemainderMono(mixed, blockLen, buffer);
+            }
          }
          else {
-            bytes = exporter.EncodeRemainderMono(mixed,  blockLen , buffer);
+            if (channels > 1) {
+               bytes = exporter.EncodeBuffer(mixed, buffer);
+            }
+            else {
+               bytes = exporter.EncodeBufferMono(mixed, buffer);
+            }
          }
-      }
-      else {
-         if (channels > 1) {
-            bytes = exporter.EncodeBuffer(mixed, buffer);
+
+         if (bytes < 0) {
+            wxString msg;
+            msg.Printf(_("Error %ld returned from MP3 encoder"), bytes);
+            wxMessageBox(msg);
+            break;
          }
-         else {
-            bytes = exporter.EncodeBufferMono(mixed, buffer);
-         }
+
+         outFile.Write(buffer, bytes);
+
+         updateResult = progress.Update(mixer->MixGetCurrentTime() - t0, t1 - t0);
       }
-
-      if (bytes < 0) {
-         wxString msg;
-         msg.Printf(_("Error %ld returned from MP3 encoder"), bytes);
-         wxMessageBox(msg);
-         break;
-      }
-
-      outFile.Write(buffer, bytes);
-
-      updateResult = progress->Update(mixer->MixGetCurrentTime()-t0, t1-t0);
    }
-
-   delete progress;
 
    delete mixer;
 
@@ -1869,7 +1869,8 @@ int ExportMP3::Export(AudacityProject *project,
 
 wxWindow *ExportMP3::OptionsCreate(wxWindow *parent, int format)
 {
-   return new ExportMP3Options(parent, format);
+   wxASSERT(parent); // to justify safenew
+   return safenew ExportMP3Options(parent, format);
 }
 
 int ExportMP3::FindValue(CHOICES *choices, int cnt, int needle, int def)
@@ -1964,13 +1965,14 @@ int ExportMP3::AskResample(int bitrate, int rate, int lowrate, int highrate)
 }
 
 // returns buffer len; caller frees
-int ExportMP3::AddTags(AudacityProject *WXUNUSED(project), char **buffer, bool *endOfFile, Tags *tags)
+int ExportMP3::AddTags(AudacityProject *WXUNUSED(project), char **buffer, bool *endOfFile, const Tags *tags)
 {
 #ifdef USE_LIBID3TAG
    struct id3_tag *tp = id3_tag_new();
 
-   wxString n, v;
-   for (bool cont = tags->GetFirst(n, v); cont; cont = tags->GetNext(n, v)) {
+   for (const auto &pair : tags->GetRange()) {
+      const auto &n = pair.first;
+      const auto &v = pair.second;
       const char *name = "TXXX";
 
       if (n.CmpNoCase(TAG_TITLE) == 0) {

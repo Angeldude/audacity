@@ -26,7 +26,7 @@
 // Show auto recovery dialog if there are projects to recover. Should be
 // called once at Audacity startup.
 //
-// This function possibly opens new project windows while it recovers all
+// This function possibly opens NEW project windows while it recovers all
 // projects. If so, it will re-use *pproj, if != NULL and set it to NULL.
 //
 // Returns: True, if the start of Audacity should continue as normal
@@ -41,17 +41,21 @@ bool ShowAutoRecoveryDialogIfNeeded(AudacityProject** pproj,
 //
 // XML Handler for a <recordingrecovery> tag
 //
-class RecordingRecoveryHandler: public XMLTagHandler
+class RecordingRecoveryHandler final : public XMLTagHandler
 {
 public:
    RecordingRecoveryHandler(AudacityProject* proj);
    virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
+   virtual void HandleXMLEndTag(const wxChar *tag);
    virtual XMLTagHandler *HandleXMLChild(const wxChar *tag);
 
    // This class only knows reading tags
    virtual void WriteXML(XMLWriter & WXUNUSED(xmlFile)) { wxASSERT(false); }
 
 private:
+
+   int FindTrack() const;
+
    AudacityProject* mProject;
    int mChannel;
    int mNumChannels;
@@ -69,7 +73,7 @@ WX_DECLARE_STRING_HASH_MAP_WITH_DECL(short, NameMap, class AUDACITY_DLL_API);
 WX_DECLARE_HASH_MAP_WITH_DECL(short, wxString, wxIntegerHash, wxIntegerEqual, IdMap, class AUDACITY_DLL_API);
 WX_DECLARE_OBJARRAY_WITH_DECL(IdMap, IdMapArray, class AUDACITY_DLL_API);
 
-class AUDACITY_DLL_API AutoSaveFile : public XMLWriter
+class AUDACITY_DLL_API AutoSaveFile final : public XMLWriter
 {
 public:
 

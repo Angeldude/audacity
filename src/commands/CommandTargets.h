@@ -30,7 +30,7 @@ should be reference-counted.
 #include "../src/Project.h"
 
 /// Interface for objects that can receive command progress information
-class CommandProgressTarget
+class CommandProgressTarget /* not final */
 {
 public:
    virtual ~CommandProgressTarget() {}
@@ -38,7 +38,7 @@ public:
 };
 
 /// Used to ignore a command's progress updates
-class NullProgressTarget : public CommandProgressTarget
+class NullProgressTarget final : public CommandProgressTarget
 {
 public:
    virtual ~NullProgressTarget() {}
@@ -62,15 +62,15 @@ public:
 };
 
 /// Interface for objects that can receive (string) messages from a command
-class CommandMessageTarget
+class CommandMessageTarget /* not final */
 {
 public:
    virtual ~CommandMessageTarget() {}
-   virtual void Update(wxString message) = 0;
+   virtual void Update(const wxString &message) = 0;
 };
 
 ///
-class ProgressToMessageTarget : public CommandProgressTarget
+class ProgressToMessageTarget final : public CommandProgressTarget
 {
 private:
    CommandMessageTarget &mTarget;
@@ -89,26 +89,26 @@ public:
 };
 
 /// Used to ignore a command's message updates
-class NullMessageTarget : public CommandMessageTarget
+class NullMessageTarget final : public CommandMessageTarget
 {
 public:
    virtual ~NullMessageTarget() {}
-   virtual void Update(wxString message) {}
+   virtual void Update(const wxString &message) override {}
 };
 
 /// Displays messages from a command in a wxMessageBox
-class MessageBoxTarget : public CommandMessageTarget
+class MessageBoxTarget final : public CommandMessageTarget
 {
 public:
    virtual ~MessageBoxTarget() {}
-   virtual void Update(wxString message)
+   virtual void Update(const wxString &message) override
    {
       wxMessageBox(message);
    }
 };
 
 /// Displays messages from a command in a wxStatusBar
-class StatusBarTarget : public CommandMessageTarget
+class StatusBarTarget final : public CommandMessageTarget
 {
 private:
    wxStatusBar &mStatus;
@@ -116,14 +116,14 @@ public:
    StatusBarTarget(wxStatusBar &sb)
       : mStatus(sb)
    {}
-   virtual void Update(wxString message)
+   virtual void Update(const wxString &message) override
    {
       mStatus.SetStatusText(message, 0);
    }
 };
 
 /// Adds messages to a response queue (to be sent back to a script)
-class ResponseQueueTarget : public CommandMessageTarget
+class ResponseQueueTarget final : public CommandMessageTarget
 {
 private:
    ResponseQueue &mResponseQueue;
@@ -135,14 +135,14 @@ public:
    {
       mResponseQueue.AddResponse(wxString(wxT("\n")));
    }
-   virtual void Update(wxString message)
+   virtual void Update(const wxString &message) override
    {
       mResponseQueue.AddResponse(message);
    }
 };
 
 /// Sends messages to two message targets at once
-class CombinedMessageTarget : public CommandMessageTarget
+class CombinedMessageTarget final : public CommandMessageTarget
 {
 private:
    CommandMessageTarget *m1, *m2;
@@ -158,7 +158,7 @@ public:
       delete m1;
       delete m2;
    }
-   virtual void Update(wxString message)
+   virtual void Update(const wxString &message) override
    {
       m1->Update(message);
       m2->Update(message);
@@ -220,12 +220,12 @@ public:
       if (mProgressTarget)
          mProgressTarget->Update(completed);
    }
-   void Status(wxString status)
+   void Status(const wxString &status)
    {
       if (mStatusTarget)
          mStatusTarget->Update(status);
    }
-   void Error(wxString message)
+   void Error(const wxString &message)
    {
       if (mErrorTarget)
          mErrorTarget->Update(message);

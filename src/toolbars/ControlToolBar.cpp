@@ -51,6 +51,7 @@
 #include <wx/timer.h>
 #endif
 #include <wx/tooltip.h>
+#include <wx/datetime.h>
 
 #include "TranscriptionToolBar.h"
 #include "MeterToolBar.h"
@@ -281,8 +282,8 @@ void ControlToolBar::ArrangeButtons()
       Detach( mSizer );
       delete mSizer;
    }
-   mSizer = new wxBoxSizer( wxHORIZONTAL );
-   Add( mSizer, 1, wxEXPAND );
+
+   Add((mSizer = safenew wxBoxSizer(wxHORIZONTAL)), 1, wxEXPAND);
 
    // Start with a little extra space
    mSizer->Add( 5, 55 );
@@ -831,7 +832,8 @@ void ControlToolBar::OnRecord(wxCommandEvent &evt)
 
       // If SHIFT key was down, the user wants append to tracks
       int recordingChannels = 0;
-      TrackList *tracksCopy = NULL;
+      TrackList tracksCopy(true);
+      bool tracksCopied = false;
       bool shifted = mRecord->WasShiftDown();
       if (shifted) {
          bool sel = false;
@@ -871,12 +873,12 @@ void ControlToolBar::OnRecord(wxCommandEvent &evt)
                   playbackTracks.Remove(wt);
                t1 = wt->GetEndTime();
                if (t1 < t0) {
-                  if (!tracksCopy) {
-                     tracksCopy = new TrackList();
+                  if (!tracksCopied) {
+                     tracksCopied = true;
                      TrackListIterator iter(t);
                      Track *trk = iter.First();
                      while (trk) {
-                        tracksCopy->Add(trk->Duplicate());
+                        tracksCopy.Add(trk->Duplicate());
                         trk = iter.Next();
                      }
                   }
@@ -896,11 +898,64 @@ void ControlToolBar::OnRecord(wxCommandEvent &evt)
          t1 = 1000000000.0;     // record for a long, long time (tens of years)
       }
       else {
+         bool recordingNameCustom, useTrackNumber, useDateStamp, useTimeStamp;
+         wxString defaultTrackName, defaultRecordingTrackName;
+         int numTracks = 0;
+
+         for (Track *tt = it.First(); tt; tt = it.Next()) {
+            if (tt->GetKind() == Track::Wave && !tt->GetLinked())
+               numTracks++;
+         }
+         numTracks++;
+         
          recordingChannels = gPrefs->Read(wxT("/AudioIO/RecordChannels"), 2);
+
+         gPrefs->Read(wxT("/GUI/TrackNames/RecordingNameCustom"), &recordingNameCustom, false);
+         gPrefs->Read(wxT("/GUI/TrackNames/TrackNumber"), &useTrackNumber, false);
+         gPrefs->Read(wxT("/GUI/TrackNames/DateStamp"), &useDateStamp, false);
+         gPrefs->Read(wxT("/GUI/TrackNames/TimeStamp"), &useTimeStamp, false);
+         /* i18n-hint: The default name for an audio track. */
+         gPrefs->Read(wxT("/GUI/TrackNames/DefaultTrackName"),&defaultTrackName, _("Audio Track"));
+         gPrefs->Read(wxT("/GUI/TrackNames/RecodingTrackName"), &defaultRecordingTrackName, defaultTrackName);
+
+         wxString baseTrackName = recordingNameCustom? defaultRecordingTrackName : defaultTrackName;
+
          for (int c = 0; c < recordingChannels; c++) {
             WaveTrack *newTrack = p->GetTrackFactory()->NewWaveTrack();
 
             newTrack->SetOffset(t0);
+            wxString nameSuffix = wxString(wxT(""));
+
+            if (useTrackNumber) {
+               nameSuffix += wxString::Format(wxT("%d"), numTracks + c);
+            }
+
+            if (useDateStamp) {
+               if (!nameSuffix.IsEmpty()) {
+                  nameSuffix += wxT("_");
+               }
+               nameSuffix += wxDateTime::Now().FormatISODate();
+            }
+
+            if (useTimeStamp) {
+               if (!nameSuffix.IsEmpty()) {
+                  nameSuffix += wxT("_");
+               }
+               nameSuffix += wxDateTime::Now().FormatISOTime();
+            }
+
+            // ISO standard would be nice, but ":" is unsafe for file name.
+            nameSuffix.Replace(wxT(":"), wxT("-"));
+
+            if (baseTrackName.IsEmpty()) {
+               newTrack->SetName(nameSuffix);
+            }
+            else if (nameSuffix.IsEmpty()) {
+               newTrack->SetName(baseTrackName);
+            }
+            else {
+               newTrack->SetName(baseTrackName + wxT("_") + nameSuffix);
+            }
 
             if (recordingChannels > 2)
               newTrack->SetMinimized(true);
@@ -946,17 +1001,13 @@ void ControlToolBar::OnRecord(wxCommandEvent &evt)
       if (success) {
          p->SetAudioIOToken(token);
          mBusyProject = p;
-         if (shifted && tracksCopy) {
-            tracksCopy->Clear(true);
-            delete tracksCopy;
-         }
       }
       else {
          if (shifted) {
             // Restore the tracks to remove any inserted silence
-            if (tracksCopy) {
+            if (tracksCopied) {
                t->Clear(true);
-               TrackListIterator iter(tracksCopy);
+               TrackListIterator iter(&tracksCopy);
                Track *trk = iter.First();
                while (trk)
                {
@@ -964,7 +1015,6 @@ void ControlToolBar::OnRecord(wxCommandEvent &evt)
                   trk = iter.RemoveCurrent();
                   t->Add(tmp);
                }
-               delete tracksCopy;
             }
          }
          else {
@@ -1077,7 +1127,7 @@ void ControlToolBar::ClearCutPreviewTracks()
 {
    if (mCutPreviewTracks)
    {
-      mCutPreviewTracks->Clear(true); /* delete track contents too */
+      mCutPreviewTracks->Clear(true); /* DELETE track contents too */
       delete mCutPreviewTracks;
       mCutPreviewTracks = NULL;
    }

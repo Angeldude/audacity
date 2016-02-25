@@ -170,7 +170,7 @@ bool LoadFFmpeg(bool showerror);
 /// If Audacity failed to load libav*, this dialog
 /// shows up and tells user about that. It will pop-up
 /// again and again until it is disabled.
-class FFmpegNotFoundDialog : public wxDialog
+class FFmpegNotFoundDialog final : public wxDialog
 {
 public:
 
@@ -256,7 +256,7 @@ public:
    ///\param showerr - controls whether or not to show an error dialog if libraries cannot be loaded
    ///\return true if initialization completed without errors, false otherwise
    /// do not call (it is called by FindLibs automatically)
-   bool InitLibs(wxString libpath_codec, bool showerr);
+   bool InitLibs(const wxString &libpath_codec, bool showerr);
 
    ///! Frees (unloads) loaded libraries
    void FreeLibs();

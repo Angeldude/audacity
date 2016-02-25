@@ -286,7 +286,7 @@ OSType AudioUnitEffectsModule::ToOSType(const wxString & type)
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-class AudioUnitEffectOptionsDialog:public wxDialog
+class AudioUnitEffectOptionsDialog final : public wxDialog
 {
 public:
    AudioUnitEffectOptionsDialog(wxWindow * parent, EffectHostInterface *host);
@@ -426,7 +426,7 @@ void AudioUnitEffectOptionsDialog::OnOk(wxCommandEvent & WXUNUSED(evt))
 #define PRESET_LOCAL_PATH wxT("/Library/Audio/Presets")
 #define PRESET_USER_PATH wxT("~/Library/Audio/Presets")
 
-class AudioUnitEffectExportDialog:public wxDialog
+class AudioUnitEffectExportDialog final : public wxDialog
 {
 public:
    AudioUnitEffectExportDialog(wxWindow * parent, AudioUnitEffect *effect);
@@ -600,7 +600,7 @@ void AudioUnitEffectExportDialog::OnOk(wxCommandEvent & WXUNUSED(evt))
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-class AudioUnitEffectImportDialog:public wxDialog
+class AudioUnitEffectImportDialog final : public wxDialog
 {
 public:
    AudioUnitEffectImportDialog(wxWindow * parent, AudioUnitEffect *effect);
@@ -1752,12 +1752,16 @@ bool AudioUnitEffect::PopulateUI(wxWindow *parent)
    mDialog = (wxDialog *) wxGetTopLevelParent(parent);
    mParent = parent;
 
-   wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
+   wxPanel *container;
+   {
+      auto mainSizer = std::make_unique<wxBoxSizer>(wxVERTICAL);
 
-   wxPanel *container = new wxPanel(mParent, wxID_ANY);
-   mainSizer->Add(container, 1, wxEXPAND);
+      wxASSERT(mParent); // To justify safenew
+      container = safenew wxPanel(mParent, wxID_ANY);
+      mainSizer->Add(container, 1, wxEXPAND);
 
-   mParent->SetSizer(mainSizer);
+      mParent->SetSizer(mainSizer.release());
+   }
 
    if (mUIType == wxT("Plain"))
    {
@@ -1779,10 +1783,12 @@ bool AudioUnitEffect::PopulateUI(wxWindow *parent)
          return false;
       }
 
-      wxBoxSizer *innerSizer = new wxBoxSizer(wxVERTICAL);
-   
-      innerSizer->Add(mControl, 1, wxEXPAND);
-      container->SetSizer(innerSizer);
+      {
+         auto innerSizer = std::make_unique<wxBoxSizer>(wxVERTICAL);
+
+         innerSizer->Add(mControl, 1, wxEXPAND);
+         container->SetSizer(innerSizer.release());
+      }
 
       mParent->SetMinSize(wxDefaultSize);
    }

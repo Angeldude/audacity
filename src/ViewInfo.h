@@ -26,11 +26,17 @@ class Track;
 // The subset of ViewInfo information (other than selection)
 // that is sufficient for purposes of TrackArtist,
 // and for computing conversions between track times and pixel positions.
-class AUDACITY_DLL_API ZoomInfo
+class AUDACITY_DLL_API ZoomInfo /* not final */
+   // Note that ViewInfo inherits from ZoomInfo but there are no virtual functions.
+   // That's okay if we pass always by reference and never copy, suffering "slicing."
 {
 public:
    ZoomInfo(double start, double pixelsPerSecond);
    ~ZoomInfo();
+
+   // Be sure we don't slice
+   ZoomInfo(const ZoomInfo&) PROHIBITED;
+   ZoomInfo& operator= (const ZoomInfo&) PROHIBITED;
 
    void UpdatePrefs();
 
@@ -61,6 +67,10 @@ public:
       wxInt64 origin = 0
       , bool ignoreFisheye = false
    ) const;
+
+   // This always ignores the fisheye.  Use with caution!
+   // You should prefer to call TimeToPosition twice, for endpoints, and take the difference!
+   double TimeRangeToPixelWidth(double timeRange) const;
 
    double OffsetTimeByPixels(double time, wxInt64 offset, bool ignoreFisheye = false) const
    {
@@ -124,8 +134,7 @@ public:
 
 };
 
-class AUDACITY_DLL_API ViewInfo
-   : public ZoomInfo
+class AUDACITY_DLL_API ViewInfo final : public ZoomInfo
 {
 public:
    ViewInfo(double start, double screenDuration, double pixelsPerSecond);

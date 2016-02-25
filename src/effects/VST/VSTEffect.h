@@ -61,7 +61,7 @@ WX_DEFINE_ARRAY_PTR(VSTEffect *, VSTEffectArray);
 DECLARE_LOCAL_EVENT_TYPE(EVT_SIZEWINDOW, -1);
 DECLARE_LOCAL_EVENT_TYPE(EVT_UPDATEDISPLAY, -1);
 
-class VSTEffect : public wxEvtHandler, 
+class VSTEffect final : public wxEvtHandler,
                   public EffectClientInterface,
                   public EffectUIClientInterface,
                   public XMLTagHandler,
@@ -175,7 +175,7 @@ private:
 
    // Base64 encoding and decoding
    static wxString b64encode(const void *in, int len);
-   static int b64decode(wxString in, void *out);
+   static int b64decode(const wxString &in, void *out);
 
    // Realtime
    int GetChannelCount();
@@ -329,7 +329,7 @@ private:
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-class VSTEffectsModule : public ModuleInterface
+class VSTEffectsModule final : public ModuleInterface
 {
 public:
    VSTEffectsModule(ModuleManagerInterface *moduleManager, const wxString *path);

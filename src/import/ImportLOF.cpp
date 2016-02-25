@@ -38,16 +38,16 @@
   file "C:\sample2.wav" offset 5   # sample2 is displayed with a 5s offset
   File "C:\sample3.wav"            # sample3 is displayed with no offset
   File "foo.aiff" # foo is loaded from the same directory as the LOF file
-  window offset 5 duration 10      # open a new window, zoom to display
+  window offset 5 duration 10      # open a NEW window, zoom to display
   # 10 seconds total starting at 5 (ending at 15) seconds
   file "C:\sample3.wav" offset 2.5
 \endverbatim
 
   SEMANTICS:
 
-  There are two commands: "window" creates a new window, and "file"
+  There are two commands: "window" creates a NEW window, and "file"
   appends a track to the current window and displays the file there. The
-  first file is always placed in a new window, whether or not an initial
+  first file is always placed in a NEW window, whether or not an initial
   "window" command is given.
 
   Commands have optional keyword parameters that may be listed in any
@@ -101,7 +101,7 @@ static const wxChar *exts[] =
    wxT("lof")
 };
 
-class LOFImportPlugin : public ImportPlugin
+class LOFImportPlugin final : public ImportPlugin
 {
 public:
    LOFImportPlugin()
@@ -113,11 +113,11 @@ public:
 
    wxString GetPluginStringID() { return wxT("lof"); }
    wxString GetPluginFormatDescription();
-   ImportFileHandle *Open(wxString Filename);
+   ImportFileHandle *Open(const wxString &Filename) override;
 };
 
 
-class LOFImportFileHandle : public ImportFileHandle
+class LOFImportFileHandle final : public ImportFileHandle
 {
 public:
    LOFImportFileHandle(const wxString & name, wxTextFile *file);
@@ -145,7 +145,7 @@ private:
                                 interpret relative paths in it */
    AudacityProject *mProject;
 
-   // In order to know whether or not to create a new window
+   // In order to know whether or not to create a NEW window
    bool              windowCalledOnce;
 
    // In order to zoom in, it must be done after files are opened
@@ -181,7 +181,7 @@ wxString LOFImportPlugin::GetPluginFormatDescription()
     return DESC;
 }
 
-ImportFileHandle *LOFImportPlugin::Open(wxString filename)
+ImportFileHandle *LOFImportPlugin::Open(const wxString &filename)
 {
    // Check if it is a binary file
    wxFile binaryFile;

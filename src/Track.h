@@ -29,12 +29,12 @@
 
 class wxTextFile;
 class DirManager;
-class UndoStack;
 class Track;
 class LabelTrack;
 class TimeTrack;
 class WaveTrack;
 class AudacityProject;
+class ZoomInfo;
 
 WX_DEFINE_USER_EXPORTED_ARRAY(Track*, TrackArray, class AUDACITY_DLL_API);
 WX_DEFINE_USER_EXPORTED_ARRAY(WaveTrack*, WaveTrackArray, class AUDACITY_DLL_API);
@@ -47,7 +47,7 @@ WX_DEFINE_USER_EXPORTED_ARRAY(NoteTrack*, NoteTrackArray, class AUDACITY_DLL_API
 class TrackList;
 struct TrackListNode;
 
-class AUDACITY_DLL_API Track: public XMLTagHandler
+class AUDACITY_DLL_API Track /* not final */ : public XMLTagHandler
 {
 
  // To be TrackDisplay
@@ -145,16 +145,16 @@ class AUDACITY_DLL_API Track: public XMLTagHandler
    virtual ~ Track();
 
    void Init(const Track &orig);
-   virtual Track *Duplicate() = 0;
+   virtual Track *Duplicate() const = 0;
 
    // Called when this track is merged to stereo with another, and should
    // take on some paramaters of its partner.
    virtual void Merge(const Track &orig);
 
    wxString GetName() const { return mName; }
-   void SetName( wxString n ) { mName = n; }
+   void SetName( const wxString &n ) { mName = n; }
    wxString GetDefaultName() const { return mDefaultName; }
-   void SetDefaultName( wxString n ) { mDefaultName = n; }
+   void SetDefaultName( const wxString &n ) { mDefaultName = n; }
 
    bool GetSelected() const { return mSelected; }
    bool GetMute    () const { return mMute;     }
@@ -218,7 +218,7 @@ struct TrackListNode
    TrackListNode *prev;
 };
 
-class AUDACITY_DLL_API TrackListIterator
+class AUDACITY_DLL_API TrackListIterator /* not final */
 {
  public:
    TrackListIterator(TrackList * val = NULL);
@@ -239,9 +239,33 @@ class AUDACITY_DLL_API TrackListIterator
    TrackListNode *cur;
 };
 
+class AUDACITY_DLL_API TrackListConstIterator
+{
+public:
+   TrackListConstIterator(const TrackList * val = NULL)
+      : mIter(const_cast<TrackList*>(val))
+   {}
+   ~TrackListConstIterator() {}
+
+   // Iterate functions
+   const Track *First(const TrackList * val = NULL)
+   { return mIter.First(const_cast<TrackList*>(val)); }
+   const Track *StartWith(const Track * val)
+   { return mIter.StartWith(const_cast<Track*>(val)); }
+   const Track *Next(bool skiplinked = false)
+   { return mIter.Next(skiplinked); }
+   const Track *Prev(bool skiplinked = false)
+   { return mIter.Prev(skiplinked); }
+   const Track *Last(bool skiplinked = false)
+   { return mIter.Last(skiplinked); }
+
+private:
+   TrackListIterator mIter;
+};
+
 // TrackListCondIterator (base class for iterators that iterate over all tracks)
 // that meet a condition)
-class AUDACITY_DLL_API TrackListCondIterator: public TrackListIterator
+class AUDACITY_DLL_API TrackListCondIterator /* not final */ : public TrackListIterator
 {
    public:
       TrackListCondIterator(TrackList *val = NULL)
@@ -264,7 +288,7 @@ class AUDACITY_DLL_API TrackListCondIterator: public TrackListIterator
 //
 // Based on TrackListIterator and returns only tracks of the specified type.
 //
-class AUDACITY_DLL_API TrackListOfKindIterator: public TrackListCondIterator
+class AUDACITY_DLL_API TrackListOfKindIterator /* not final */ : public TrackListCondIterator
 {
  public:
    TrackListOfKindIterator(int kind, TrackList * val = NULL);
@@ -282,7 +306,7 @@ class AUDACITY_DLL_API TrackListOfKindIterator: public TrackListCondIterator
 //
 // Based on TrackListOfKindIterator and returns only tracks selected.
 //
-class AUDACITY_DLL_API SelectedTrackListOfKindIterator: public TrackListOfKindIterator
+class AUDACITY_DLL_API SelectedTrackListOfKindIterator final : public TrackListOfKindIterator
 {
  public:
     SelectedTrackListOfKindIterator(int kind, TrackList * val = NULL) : TrackListOfKindIterator(kind, val) {}
@@ -297,7 +321,7 @@ class AUDACITY_DLL_API SelectedTrackListOfKindIterator: public TrackListOfKindIt
 //
 // Based on TrackListIterator returns only the currently visible tracks.
 //
-class AUDACITY_DLL_API VisibleTrackIterator: public TrackListCondIterator
+class AUDACITY_DLL_API VisibleTrackIterator final : public TrackListCondIterator
 {
  public:
    VisibleTrackIterator(AudacityProject *project);
@@ -314,17 +338,17 @@ class AUDACITY_DLL_API VisibleTrackIterator: public TrackListCondIterator
 
 // SyncLockedTracksIterator returns only tracks belonging to the sync-locked tracks
 // in which the starting track is a member.
-class AUDACITY_DLL_API SyncLockedTracksIterator : public TrackListIterator
+class AUDACITY_DLL_API SyncLockedTracksIterator final : public TrackListIterator
 {
  public:
    SyncLockedTracksIterator(TrackList * val);
    virtual ~SyncLockedTracksIterator() {}
 
    // Iterate functions
-   Track *First(Track *member);
-   Track *Next(bool skiplinked = false);
-   Track *Prev(bool skiplinked = false);
-   Track *Last(bool skiplinked = false);
+   Track *StartWith(Track *member) override;
+   Track *Next(bool skiplinked = false) override;
+   Track *Prev(bool skiplinked = false) override;
+   Track *Last(bool skiplinked = false) override;
 
  private:
    bool mInLabelSection;
@@ -346,7 +370,7 @@ DECLARE_EXPORTED_EVENT_TYPE(AUDACITY_DLL_API, EVT_TRACKLIST_RESIZED, -1);
 // track that was added.
 DECLARE_EXPORTED_EVENT_TYPE(AUDACITY_DLL_API, EVT_TRACKLIST_UPDATED, -1);
 
-class AUDACITY_DLL_API TrackList:public wxEvtHandler
+class AUDACITY_DLL_API TrackList final : public wxEvtHandler
 {
  public:
    // Create an empty TrackList
@@ -446,12 +470,14 @@ class AUDACITY_DLL_API TrackList:public wxEvtHandler
 class AUDACITY_DLL_API TrackFactory
 {
  private:
-   TrackFactory(DirManager *dirManager):
+   TrackFactory(DirManager *dirManager, const ZoomInfo *zoomInfo):
       mDirManager(dirManager)
+      , mZoomInfo(zoomInfo)
    {
    }
 
-   DirManager *mDirManager;
+   DirManager *const mDirManager;
+   const ZoomInfo *const mZoomInfo;
    friend class AudacityProject;
    friend class BenchmarkDialog;
 

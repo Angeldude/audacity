@@ -61,14 +61,14 @@ public:
 
 WX_DECLARE_USER_EXPORTED_OBJARRAY(NyqControl,  NyqControlArray, AUDACITY_DLL_API);
 
-class AUDACITY_DLL_API NyquistEffect : public Effect
+class AUDACITY_DLL_API NyquistEffect final : public Effect
 {
 public:
 
    /** @param fName File name of the Nyquist script defining this effect. If
     * an empty string, then prompt the user for the Nyquist code to interpret.
     */
-   NyquistEffect(wxString fName);
+   NyquistEffect(const wxString &fName);
    virtual ~NyquistEffect();
 
    // IdentInterface implementation
@@ -106,7 +106,7 @@ public:
 
    // For Nyquist Workbench support
    void RedirectOutput();
-   void SetCommand(wxString cmd);
+   void SetCommand(const wxString &cmd);
    void Continue();
    void Break();
    void Stop();
@@ -152,10 +152,10 @@ private:
    void ParseFile();
    bool ParseCommand(const wxString & cmd);
    bool ParseProgram(wxInputStream & stream);
-   void Parse(wxString line);
+   void Parse(const wxString &line);
 
-   wxString UnQuote(wxString s);
-   double GetCtrlValue(wxString s);
+   wxString UnQuote(const wxString &s);
+   double GetCtrlValue(const wxString &s);
 
    void OnLoad(wxCommandEvent & evt);
    void OnSave(wxCommandEvent & evt);
@@ -180,6 +180,7 @@ private:
    bool              mCompiler;
    bool              mIsSal;
    bool              mExternal;
+   bool              mIsSpectral;
    /** True if the code to execute is obtained interactively from the user via
     * the "Nyquist Prompt", false for all other effects (lisp code read from
     * files)
@@ -198,6 +199,7 @@ private:
    bool              mEnablePreview;
    bool              mDebug;
    bool              mRedirectOutput;
+   bool              mProjectChanged;
    wxString          mDebugOutput;
 
    int               mVersion;
@@ -240,13 +242,13 @@ private:
    friend class NyquistEffectsModule;
 };
 
-class NyquistOutputDialog : public wxDialog
+class NyquistOutputDialog final : public wxDialog
 {
 public:
    NyquistOutputDialog(wxWindow * parent, wxWindowID id,
                        const wxString & title,
                        const wxString & prompt,
-                       wxString message);
+                       const wxString &message);
 
 private:
    void OnOk(wxCommandEvent & event);

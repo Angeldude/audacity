@@ -19,7 +19,7 @@
 
 #define NOISEREDUCTION_PLUGIN_SYMBOL XO("Noise Reduction")
 
-class EffectNoiseReduction: public Effect {
+class EffectNoiseReduction final : public Effect {
 public:
 
    EffectNoiseReduction();
@@ -54,8 +54,8 @@ private:
    class Worker;
    friend class Dialog;
 
-   std::auto_ptr<Settings> mSettings;
-   std::auto_ptr<Statistics> mStatistics;
+   std::unique_ptr<Settings> mSettings;
+   std::unique_ptr<Statistics> mStatistics;
 };
 
 #endif

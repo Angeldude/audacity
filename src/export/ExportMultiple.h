@@ -31,7 +31,7 @@ class LabelTrack;
 class ShuttleGui;
 class TrackListIterator;
 
-class ExportMultiple : public wxDialog
+class ExportMultiple final : public wxDialog
 {
 public:
 
@@ -54,7 +54,7 @@ private:
     * labels that define them (true), or just numbered (false).
     * @param prefix The string used to prefix the file number if files are being
     * numbered rather than named */
-   int ExportMultipleByLabel(bool byName, wxString prefix, bool addNumber);
+   int ExportMultipleByLabel(bool byName, const wxString &prefix, bool addNumber);
 
    /** \brief Export each track in the project to a separate file
     *
@@ -62,7 +62,7 @@ private:
     * (true), or just numbered (false).
     * @param prefix The string used to prefix the file number if files are being
     * numbered rather than named */
-   int ExportMultipleByTrack(bool byName, wxString prefix, bool addNumber);
+   int ExportMultipleByTrack(bool byName, const wxString &prefix, bool addNumber);
 
    /** Export one file of an export multiple set
     *
@@ -79,11 +79,11 @@ private:
                  bool selectedOnly,
                  double t0,
                  double t1,
-                 Tags tags);
+                 const Tags &tags);
    /** \brief Takes an arbitrary text string and converts it to a form that can
     * be used as a file name, if necessary prompting the user to edit the file
     * name produced */
-   wxString MakeFileName(wxString input);
+   wxString MakeFileName(const wxString &input);
    // Dialog
    void PopulateOrExchange(ShuttleGui& S);
    void EnableControls();
@@ -169,7 +169,7 @@ private:
 
 };
 
-class SuccessDialog : public wxDialog
+class SuccessDialog final : public wxDialog
 {
 public:
    SuccessDialog(wxWindow *parent, wxWindowID id, const wxString &title) :
@@ -181,7 +181,7 @@ private:
    DECLARE_EVENT_TABLE()
 };
 
-class MouseEvtHandler : public wxEvtHandler
+class MouseEvtHandler final : public wxEvtHandler
 {
 public:
    void OnMouse(wxMouseEvent& event);

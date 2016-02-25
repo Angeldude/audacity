@@ -47,7 +47,7 @@ and libvorbis examples, Monty <monty@xiph.org>
 // ExportFLACOptions Class
 //----------------------------------------------------------------------------
 
-class ExportFLACOptions : public wxPanel
+class ExportFLACOptions final : public wxPanel
 {
 public:
 
@@ -173,7 +173,7 @@ static struct
 
 //----------------------------------------------------------------------------
 
-class ExportFLAC : public ExportPlugin
+class ExportFLAC final : public ExportPlugin
 {
 public:
 
@@ -185,17 +185,17 @@ public:
    wxWindow *OptionsCreate(wxWindow *parent, int format);
    int Export(AudacityProject *project,
                int channels,
-               wxString fName,
+               const wxString &fName,
                bool selectedOnly,
                double t0,
                double t1,
                MixerSpec *mixerSpec = NULL,
-               Tags *metadata = NULL,
-               int subformat = 0);
+               const Tags *metadata = NULL,
+               int subformat = 0) override;
 
 private:
 
-   bool GetMetadata(AudacityProject *project, Tags *tags);
+   bool GetMetadata(AudacityProject *project, const Tags *tags);
 
    FLAC__StreamMetadata *mMetadata;
 };
@@ -220,12 +220,12 @@ void ExportFLAC::Destroy()
 
 int ExportFLAC::Export(AudacityProject *project,
                         int numChannels,
-                        wxString fName,
+                        const wxString &fName,
                         bool selectionOnly,
                         double t0,
                         double t1,
                         MixerSpec *mixerSpec,
-                        Tags *metadata,
+                        const Tags *metadata,
                         int WXUNUSED(subformat))
 {
    double    rate    = project->GetRate();
@@ -325,38 +325,38 @@ int ExportFLAC::Export(AudacityProject *project,
       tmpsmplbuf[i] = (FLAC__int32 *) calloc(SAMPLES_PER_RUN, sizeof(FLAC__int32));
    }
 
-   ProgressDialog *progress = new ProgressDialog(wxFileName(fName).GetName(),
+   {
+      ProgressDialog progress(wxFileName(fName).GetName(),
          selectionOnly ?
          _("Exporting the selected audio as FLAC") :
          _("Exporting the entire project as FLAC"));
 
-   while (updateResult == eProgressSuccess) {
-      sampleCount samplesThisRun = mixer->Process(SAMPLES_PER_RUN);
-      if (samplesThisRun == 0) { //stop encoding
-         break;
-      }
-      else {
-         for (i = 0; i < numChannels; i++) {
-            samplePtr mixed = mixer->GetBuffer(i);
-            if (format == int24Sample) {
-               for (j = 0; j < samplesThisRun; j++) {
-                  tmpsmplbuf[i][j] = ((int *) mixed)[j];
-               }
-            }
-            else {
-               for (j = 0; j < samplesThisRun; j++) {
-                  tmpsmplbuf[i][j] = ((short *) mixed)[j];
-               }
-            }
+      while (updateResult == eProgressSuccess) {
+         sampleCount samplesThisRun = mixer->Process(SAMPLES_PER_RUN);
+         if (samplesThisRun == 0) { //stop encoding
+            break;
          }
-         encoder.process(tmpsmplbuf, samplesThisRun);
+         else {
+            for (i = 0; i < numChannels; i++) {
+               samplePtr mixed = mixer->GetBuffer(i);
+               if (format == int24Sample) {
+                  for (j = 0; j < samplesThisRun; j++) {
+                     tmpsmplbuf[i][j] = ((int *)mixed)[j];
+                  }
+               }
+               else {
+                  for (j = 0; j < samplesThisRun; j++) {
+                     tmpsmplbuf[i][j] = ((short *)mixed)[j];
+                  }
+               }
+            }
+            encoder.process(tmpsmplbuf, samplesThisRun);
+         }
+         updateResult = progress.Update(mixer->MixGetCurrentTime() - t0, t1 - t0);
       }
-      updateResult = progress->Update(mixer->MixGetCurrentTime()-t0, t1-t0);
+      f.Detach(); // libflac closes the file
+      encoder.finish();
    }
-   f.Detach(); // libflac closes the file
-   encoder.finish();
-
-   delete progress;
 
    for (i = 0; i < numChannels; i++) {
       free(tmpsmplbuf[i]);
@@ -370,7 +370,8 @@ int ExportFLAC::Export(AudacityProject *project,
 
 wxWindow *ExportFLAC::OptionsCreate(wxWindow *parent, int format)
 {
-   return new ExportFLACOptions(parent, format);
+   wxASSERT(parent); // to justify safenew
+   return safenew ExportFLACOptions(parent, format);
 }
 
 // LL:  There's a bug in libflac++ 1.1.2 that prevents us from using
@@ -379,7 +380,7 @@ wxWindow *ExportFLAC::OptionsCreate(wxWindow *parent, int format)
 //      expects that array to be valid until the stream is initialized.
 //
 //      This has been fixed in 1.1.4.
-bool ExportFLAC::GetMetadata(AudacityProject *project, Tags *tags)
+bool ExportFLAC::GetMetadata(AudacityProject *project, const Tags *tags)
 {
    // Retrieve tags if needed
    if (tags == NULL)
@@ -387,8 +388,10 @@ bool ExportFLAC::GetMetadata(AudacityProject *project, Tags *tags)
 
    mMetadata = ::FLAC__metadata_object_new(FLAC__METADATA_TYPE_VORBIS_COMMENT);
 
-   wxString n, v;
-   for (bool cont = tags->GetFirst(n, v); cont; cont = tags->GetNext(n, v)) {
+   wxString n;
+   for (const auto &pair : tags->GetRange()) {
+      n = pair.first;
+      const auto &v = pair.second;
       if (n == TAG_YEAR) {
          n = wxT("DATE");
       }

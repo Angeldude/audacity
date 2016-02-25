@@ -35,7 +35,7 @@ class WaveTrack;
 DECLARE_EXPORTED_EVENT_TYPE(AUDACITY_DLL_API, EVT_ODTASK_COMPLETE, -1)
 
 /// A class representing a modular task to be used with the On-Demand structures.
-class ODTask
+class ODTask /* not final */
 {
  public:
    enum {
@@ -81,7 +81,7 @@ class ODTask
 
    virtual void StopUsingWaveTrack(WaveTrack* track);
 
-   ///Replaces all instances to a wavetrack with a new one, effectively transferring the task.
+   ///Replaces all instances to a wavetrack with a NEW one, effectively transferring the task.
    ///ODTask has no wavetrack, so it does nothing.  But subclasses that do should override this.
    virtual void ReplaceWaveTrack(WaveTrack* oldTrack,WaveTrack* newTrack);
 

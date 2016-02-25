@@ -346,7 +346,7 @@ int import_ffmpeg_decode_frame(streamContext *sc, bool flushing)
 
    if (flushing)
    {
-      // If we're flushing the decoders we don't actually have any new data to decode.
+      // If we're flushing the decoders we don't actually have any NEW data to decode.
       pDecode = NULL;
       nDecodeSiz = 0;
    }
@@ -445,7 +445,7 @@ class FFmpegNotFoundDialog;
 #define ID_FFMPEG_DLOAD  5001
 
 /// Allows user to locate libav* libraries
-class FindFFmpegDialog : public wxDialog
+class FindFFmpegDialog final : public wxDialog
 {
 public:
 
@@ -692,14 +692,9 @@ bool FFmpegLibs::LoadLibs(wxWindow * WXUNUSED(parent), bool showerr)
    {
       wxLogError(wxT("Failed to load libraries altogether."));
       int dontShowDlg;
-      FFmpegNotFoundDialog *dlg;
       gPrefs->Read(wxT("/FFmpeg/NotFoundDontShow"),&dontShowDlg,0);
       if ((dontShowDlg == 0) && (showerr))
-      {
-         dlg = new FFmpegNotFoundDialog(NULL);
-         dlg->ShowModal();
-         delete dlg;
-      }
+         FFmpegNotFoundDialog{nullptr}.ShowModal();
    }
    */
    // Oh well, just give up
@@ -720,7 +715,7 @@ bool FFmpegLibs::ValidLibsLoaded()
    return mLibsLoaded;
 }
 
-bool FFmpegLibs::InitLibs(wxString libpath_format, bool WXUNUSED(showerr))
+bool FFmpegLibs::InitLibs(const wxString &libpath_format, bool WXUNUSED(showerr))
 {
 #if !defined(DISABLE_DYNAMIC_LOADING_FFMPEG)
    FreeLibs();

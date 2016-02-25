@@ -68,13 +68,13 @@ class Tags;
 
 class ImportFileHandle;
 
-class ImportPlugin
+class ImportPlugin /* not final */
 {
 public:
 
    // Get unique string ID of this plugin, usually it corresponds
    // to the underlying library, i.e. "libsndfile", "libflac", "libav"
-   // These MUST NOT change across Audacity versions (but new IDs can
+   // These MUST NOT change across Audacity versions (but NEW IDs can
    // be added).
    virtual wxString GetPluginStringID() = 0;
 
@@ -90,7 +90,7 @@ public:
       return mExtensions;
    }
 
-   bool SupportsExtension(wxString extension)
+   bool SupportsExtension(const wxString &extension)
    {
       // Case-insensitive check if extension is supported
       return mExtensions.Index(extension, false) != wxNOT_FOUND;
@@ -99,7 +99,7 @@ public:
    // Open the given file, returning true if it is in a recognized
    // format, false otherwise.  This puts the importer into the open
    // state.
-   virtual ImportFileHandle *Open(wxString Filename) = 0;
+   virtual ImportFileHandle *Open(const wxString &Filename) = 0;
 
    virtual ~ImportPlugin() { }
 
@@ -114,7 +114,7 @@ protected:
 };
 
 
-class ImportFileHandle
+class ImportFileHandle /* not final */
 {
 public:
    ImportFileHandle(const wxString & filename)
@@ -178,7 +178,7 @@ protected:
 class UnusableImportPlugin
 {
 public:
-   UnusableImportPlugin(wxString formatName, wxArrayString extensions):
+   UnusableImportPlugin(const wxString &formatName, wxArrayString extensions):
       mFormatName(formatName),
       mExtensions(extensions)
    {
@@ -189,7 +189,7 @@ public:
       return mFormatName;
    }
 
-   bool SupportsExtension(wxString extension)
+   bool SupportsExtension(const wxString &extension)
    {
       return mExtensions.Index(extension, false) != wxNOT_FOUND;
    }

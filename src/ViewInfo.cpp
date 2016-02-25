@@ -58,9 +58,20 @@ wxInt64 ZoomInfo::TimeToPosition(double projectTime,
    , bool // ignoreFisheye
 ) const
 {
-   return floor(0.5 +
-      zoom * (projectTime - h) + origin
-   );
+   double t = 0.5 + zoom * (projectTime - h) + origin ;
+   if( t < wxINT64_MIN )
+      return wxINT64_MIN;
+   if( t > wxINT64_MAX )
+      return wxINT64_MAX;
+   t = floor( t );
+   return t;
+}
+
+// This always ignores the fisheye.  Use with caution!
+// You should prefer to call TimeToPosition twice, for endpoints, and take the difference!
+double ZoomInfo::TimeRangeToPixelWidth(double timeRange) const
+{
+   return timeRange * zoom;
 }
 
 bool ZoomInfo::ZoomInAvailable() const

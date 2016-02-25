@@ -35,7 +35,7 @@ Also, see ODPCMAliasBlockFile for a similar file.
 #include <wx/thread.h>
 
 /// An AliasBlockFile that references uncompressed data in an existing file
-class ODDecodeBlockFile : public SimpleBlockFile
+class ODDecodeBlockFile final : public SimpleBlockFile
 {
  public:
 
@@ -76,7 +76,7 @@ class ODDecodeBlockFile : public SimpleBlockFile
 
 
 
-   ///Makes new ODPCMAliasBlockFile or PCMAliasBlockFile depending on summary availability
+   ///Makes NEW ODPCMAliasBlockFile or PCMAliasBlockFile depending on summary availability
    virtual BlockFile *Copy(wxFileName fileName);
 
    ///Saves as xml ODPCMAliasBlockFile or PCMAliasBlockFile depending on summary availability

@@ -50,14 +50,14 @@ class wxRect;
 class DirManager;
 class Alg_seq;   // from "allegro.h"
 
-class AUDACITY_DLL_API NoteTrack:public Track {
+class AUDACITY_DLL_API NoteTrack final : public Track {
  public:
    friend class TrackArtist;
 
    NoteTrack(DirManager * projDirManager);
    virtual ~NoteTrack();
 
-   virtual Track *Duplicate();
+   virtual Track *Duplicate() const;
 
    virtual int GetKind() const { return Note; }
 
@@ -78,8 +78,8 @@ class AUDACITY_DLL_API NoteTrack:public Track {
    int GetVisibleChannels();
 
    Alg_seq_ptr MakeExportableSeq();
-   bool ExportMIDI(wxString f);
-   bool ExportAllegro(wxString f);
+   bool ExportMIDI(const wxString &f);
+   bool ExportAllegro(const wxString &f);
 
 /* REQUIRES PORTMIDI */
 //   int GetLastMidiPosition() const { return mLastMidiPosition; }
