@@ -75,7 +75,7 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
    WaveTrack(const WaveTrack &orig);
 
    void Init(const WaveTrack &orig);
-   virtual Track *Duplicate() const;
+   virtual Track *Duplicate() const override;
 #ifdef EXPERIMENTAL_OUTPUT_DISPLAY
    void VirtualStereoInit();
 #endif
@@ -89,8 +89,8 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
    typedef WaveTrackLocation Location;
 
    virtual ~WaveTrack();
-   virtual double GetOffset() const;
-   virtual void SetOffset (double o);
+   double GetOffset() const override;
+   void SetOffset(double o) override;
 
    /** @brief Get the time at which the first clip in the track starts
     *
@@ -109,9 +109,9 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
    // Identifying the type of track
    //
 
-   virtual int GetKind() const { return Wave; }
+   int GetKind() const override { return Wave; }
 #ifdef EXPERIMENTAL_OUTPUT_DISPLAY
-   virtual int GetMinimizedHeight() const;
+   int GetMinimizedHeight() const override;
 #endif
    //
    // WaveTrack parameters
@@ -153,34 +153,35 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
    // High-level editing
    //
 
-   virtual bool Cut  (double t0, double t1, Track **dest);
-   virtual bool Copy (double t0, double t1, Track **dest);
-   virtual bool Clear(double t0, double t1);
-   virtual bool Paste(double t0, Track *src);
-   virtual bool ClearAndPaste(double t0, double t1,
-                              Track *src,
+   bool Cut(double t0, double t1, Track **dest) override;
+   bool Copy(double t0, double t1, Track **dest) const override;
+   bool CopyNonconst(double t0, double t1, Track **dest) /* not override */;
+   bool Clear(double t0, double t1) override;
+   bool Paste(double t0, const Track *src) override;
+   bool ClearAndPaste(double t0, double t1,
+                              const Track *src,
                               bool preserve = true,
                               bool merge = true,
-                              TimeWarper *effectWarper = NULL);
+                              TimeWarper *effectWarper = NULL) /* not override */;
 
-   virtual bool Silence(double t0, double t1);
-   virtual bool InsertSilence(double t, double len);
+   bool Silence(double t0, double t1) override;
+   bool InsertSilence(double t, double len) override;
 
-   virtual bool SplitAt(double t);
-   virtual bool Split( double t0, double t1 );
-   virtual bool CutAndAddCutLine(double t0, double t1, Track **dest);
-   virtual bool ClearAndAddCutLine(double t0, double t1);
+   bool SplitAt(double t) /* not override */;
+   bool Split(double t0, double t1) /* not override */;
+   // bool CutAndAddCutLine(double t0, double t1, Track **dest) /* not override */;
+   bool ClearAndAddCutLine(double t0, double t1) /* not override */;
 
-   virtual bool SplitCut   (double t0, double t1, Track **dest);
-   virtual bool SplitDelete(double t0, double t1);
-   virtual bool Join       (double t0, double t1);
-   virtual bool Disjoin    (double t0, double t1);
+   bool SplitCut(double t0, double t1, Track **dest) /* not override */;
+   bool SplitDelete(double t0, double t1) /* not override */;
+   bool Join(double t0, double t1) /* not override */;
+   bool Disjoin(double t0, double t1) /* not override */;
 
-   virtual bool Trim (double t0, double t1);
+   bool Trim(double t0, double t1) /* not override */;
 
    bool HandleClear(double t0, double t1, bool addCutLines, bool split);
 
-   virtual bool SyncLockAdjust(double oldT1, double newT1);
+   bool SyncLockAdjust(double oldT1, double newT1) override;
 
    /** @brief Returns true if there are no WaveClips in the specified region
     *
@@ -268,13 +269,13 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
    // XMLTagHandler callback methods for loading and saving
    //
 
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
-   virtual void HandleXMLEndTag(const wxChar *tag);
-   virtual XMLTagHandler *HandleXMLChild(const wxChar *tag);
-   virtual void WriteXML(XMLWriter &xmlFile);
+   bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) override;
+   void HandleXMLEndTag(const wxChar *tag) override;
+   XMLTagHandler *HandleXMLChild(const wxChar *tag) override;
+   void WriteXML(XMLWriter &xmlFile) override;
 
    // Returns true if an error occurred while reading from XML
-   virtual bool GetErrorOpening();
+   bool GetErrorOpening() override;
 
    //
    // Lock and unlock the track: you must lock the track before
@@ -342,7 +343,7 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
 
    // Add all wave clips to the given array 'clips' and sort the array by
    // clip start time. The array is emptied prior to adding the clips.
-   void FillSortedClipArray(WaveClipArray& clips);
+   void FillSortedClipArray(WaveClipArray& clips) const;
 
    // Before calling 'Offset' on a clip, use this function to see if the
    // offsetting is allowed with respect to the other clips in this track.
@@ -373,11 +374,10 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
    bool MergeClips(int clipidx1, int clipidx2);
 
    // Cache special locations (e.g. cut lines) for later speedy access
-   void UpdateLocationsCache();
+   void UpdateLocationsCache() const;
 
-   // Get number of cached locations
-   int GetNumCachedLocations() { return mDisplayNumLocations; }
-   Location GetCachedLocation(int index) { return mDisplayLocations[index]; }
+   // Get cached locations
+   const std::vector<Location> &GetCachedLocations() const { return mDisplayLocationsCache; }
 
    // Expand cut line (that is, re-insert audio, then DELETE audio saved in cut line)
    bool ExpandCutLine(double cutLinePosition, double* cutlineStart = NULL, double* cutlineEnd = NULL);
@@ -387,7 +387,7 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
 
    // This track has been merged into a stereo track.  Copy shared parameters
    // from the NEW partner.
-   virtual void Merge(const Track &orig);
+   void Merge(const Track &orig) override;
 
    // Resample track (i.e. all clips in the track)
    bool Resample(int rate, ProgressDialog *progress = NULL);
@@ -437,19 +437,19 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
    // Handle restriction of range of values of the enum from future versions
    static WaveTrackDisplay ValidateWaveTrackDisplay(WaveTrackDisplay display);
 
-   int GetLastScaleType() { return mLastScaleType; }
-   void SetLastScaleType();
+   int GetLastScaleType() const { return mLastScaleType; }
+   void SetLastScaleType() const;
 
-   int GetLastdBRange() { return mLastdBRange; }
-   void SetLastdBRange();
+   int GetLastdBRange() const { return mLastdBRange; }
+   void SetLastdBRange() const;
 
    WaveTrackDisplay GetDisplay() const { return mDisplay; }
    void SetDisplay(WaveTrackDisplay display) { mDisplay = display; }
 
    void GetDisplayBounds(float *min, float *max) const;
-   void SetDisplayBounds(float min, float max);
+   void SetDisplayBounds(float min, float max) const;
    void GetSpectrumBounds(float *min, float *max) const;
-   void SetSpectrumBounds(float min, float max);
+   void SetSpectrumBounds(float min, float max) const;
 
 
  protected:
@@ -469,17 +469,15 @@ class AUDACITY_DLL_API WaveTrack final : public Track {
    // Data that should be part of GUIWaveTrack
    // and will be taken out of the WaveTrack class:
    //
-   float         mDisplayMin;
-   float         mDisplayMax;
-   float         mSpectrumMin;
-   float         mSpectrumMax;
+   mutable float         mDisplayMin;
+   mutable float         mDisplayMax;
+   mutable float         mSpectrumMin;
+   mutable float         mSpectrumMax;
 
    WaveTrackDisplay mDisplay;
-   int           mLastScaleType; // last scale type choice
-   int           mLastdBRange;
-   int           mDisplayNumLocations;
-   int           mDisplayNumLocationsAllocated;
-   Location*       mDisplayLocations;
+   mutable int   mLastScaleType; // last scale type choice
+   mutable int           mLastdBRange;
+   mutable std::vector <Location> mDisplayLocationsCache;
 
    //
    // Protected methods

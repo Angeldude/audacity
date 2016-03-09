@@ -14,6 +14,7 @@
 
 #include "../Experimental.h"
 
+#include "../MemoryX.h"
 #include <vector>
 #include <wx/string.h>
 #include <wx/dynarray.h>
@@ -82,7 +83,11 @@ using SubMenuList = std::vector < SubMenuListEntry >;
 
 // This is an array of pointers, not structures, because the hash maps also point to them,
 // so we don't want the structures to relocate with vector operations.
-using CommandList = std::vector < std::unique_ptr<CommandListEntry> > ;
+#ifdef __AUDACITY_OLD_STD__
+using CommandList = std::vector < std::shared_ptr<CommandListEntry> >;
+#else
+using CommandList = std::vector < std::unique_ptr<CommandListEntry> >;
+#endif
 
 WX_DECLARE_STRING_HASH_MAP_WITH_DECL(CommandListEntry *, CommandNameHash, class AUDACITY_DLL_API);
 WX_DECLARE_HASH_MAP_WITH_DECL(int, CommandListEntry *, wxIntegerHash, wxIntegerEqual, CommandIDHash, class AUDACITY_DLL_API);
@@ -247,7 +252,7 @@ class AUDACITY_DLL_API CommandManager final : public XMLTagHandler
    // Loading/Saving
    //
 
-   virtual void WriteXML(XMLWriter &xmlFile);
+   void WriteXML(XMLWriter &xmlFile) /* not override */;
 
 protected:
 
@@ -299,9 +304,9 @@ protected:
    // Loading/Saving
    //
 
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
-   virtual void HandleXMLEndTag(const wxChar *tag);
-   virtual XMLTagHandler *HandleXMLChild(const wxChar *tag);
+   bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) override;
+   void HandleXMLEndTag(const wxChar *tag) override;
+   XMLTagHandler *HandleXMLChild(const wxChar *tag) override;
 
 private:
    MenuBarList  mMenuBarList;

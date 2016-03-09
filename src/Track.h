@@ -13,6 +13,8 @@
 
 #include "Audacity.h"
 
+#include "MemoryX.h"
+#include <vector>
 #include <wx/dynarray.h>
 #include <wx/event.h>
 #include <wx/gdicmn.h>
@@ -37,7 +39,25 @@ class AudacityProject;
 class ZoomInfo;
 
 WX_DEFINE_USER_EXPORTED_ARRAY(Track*, TrackArray, class AUDACITY_DLL_API);
-WX_DEFINE_USER_EXPORTED_ARRAY(WaveTrack*, WaveTrackArray, class AUDACITY_DLL_API);
+class WaveTrackArray : public std::vector < WaveTrack* > {
+};
+class WaveTrackConstArray : public std::vector < const WaveTrack* > {
+public:
+   WaveTrackConstArray() {}
+   // I'd like to use an inherited constructor, but that's not here yet in MSVC compiler...
+#ifdef __AUDACITY_OLD_STD__
+   WaveTrackConstArray
+      (std::initializer_list<value_type> tracks) 
+   {
+      reserve(tracks.size());
+      for (const auto &track : tracks)
+         push_back(track);
+   }
+#else
+   WaveTrackConstArray
+      (std::initializer_list<value_type> tracks) : std::vector<value_type>(tracks) {}
+#endif
+};
 
 #if defined(USE_MIDI)
 class NoteTrack;
@@ -72,7 +92,7 @@ class AUDACITY_DLL_API Track /* not final */ : public XMLTagHandler
    bool           mMinimized;
 
  public:
-   wxSize vrulerSize;
+   mutable wxSize vrulerSize;
 
    // This just returns a constant and can be overriden by subclasses
    // to specify a different height for the case that the track is minimized.
@@ -102,7 +122,7 @@ class AUDACITY_DLL_API Track /* not final */ : public XMLTagHandler
 #endif
    Track *GetLink() const;
 
-   const TrackListNode *GetNode();
+   const TrackListNode *GetNode() const;
    void SetOwner(TrackList *list, TrackListNode *node);
 
  // Keep in Track
@@ -181,9 +201,9 @@ class AUDACITY_DLL_API Track /* not final */ : public XMLTagHandler
    DirManager* GetDirManager() const { return mDirManager; }
 
    virtual bool Cut  (double WXUNUSED(t0), double WXUNUSED(t1), Track ** WXUNUSED(dest)) {return false;}
-   virtual bool Copy (double WXUNUSED(t0), double WXUNUSED(t1), Track ** WXUNUSED(dest)) {return false;}
+   virtual bool Copy (double WXUNUSED(t0), double WXUNUSED(t1), Track ** WXUNUSED(dest)) const {return false;}
    virtual bool Clear(double WXUNUSED(t0), double WXUNUSED(t1)) {return false;}
-   virtual bool Paste(double WXUNUSED(t), Track * WXUNUSED(src)) {return false;}
+   virtual bool Paste(double WXUNUSED(t), const Track * WXUNUSED(src)) {return false;}
 
    // This can be used to adjust a sync-lock selected track when the selection
    // is replaced by one of a different length.
@@ -194,10 +214,7 @@ class AUDACITY_DLL_API Track /* not final */ : public XMLTagHandler
 
    virtual int GetKind() const { return None; }
 
-   // XMLTagHandler callback methods
-
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) = 0;
-   virtual XMLTagHandler *HandleXMLChild(const wxChar *tag) = 0;
+   // XMLTagHandler callback methods -- NEW virtual for writing
    virtual void WriteXML(XMLWriter &xmlFile) = 0;
 
    // Returns true if an error was encountered while trying to
@@ -273,13 +290,14 @@ class AUDACITY_DLL_API TrackListCondIterator /* not final */ : public TrackListI
       virtual ~TrackListCondIterator() {}
 
       // Iteration functions
-      Track *First(TrackList *val = NULL);
-      Track *StartWith(Track *val);
-      Track *Next(bool skiplinked = false);
-      Track *Prev(bool skiplinked = false);
-      Track *Last(bool skiplinked = false);
+      Track *First(TrackList *val = NULL) override;
+      Track *StartWith(Track *val) override;
+      Track *Next(bool skiplinked = false) override;
+      Track *Prev(bool skiplinked = false) override;
+      Track *Last(bool skiplinked = false) override;
 
    protected:
+      // NEW virtual
       virtual bool Condition(Track *t) = 0;
 };
 
@@ -295,7 +313,7 @@ class AUDACITY_DLL_API TrackListOfKindIterator /* not final */ : public TrackLis
    virtual ~TrackListOfKindIterator() {}
 
  protected:
-   virtual bool Condition(Track *t);
+   virtual bool Condition(Track *t) override;
 
  private:
    int kind;
@@ -313,7 +331,7 @@ class AUDACITY_DLL_API SelectedTrackListOfKindIterator final : public TrackListO
    virtual ~SelectedTrackListOfKindIterator() {}
 
  protected:
-   bool Condition(Track *t);
+   bool Condition(Track *t) override;
 };
 
 //
@@ -328,7 +346,7 @@ class AUDACITY_DLL_API VisibleTrackIterator final : public TrackListCondIterator
    virtual ~VisibleTrackIterator() {}
 
  protected:
-   bool Condition(Track *t);
+   bool Condition(Track *t) override;
 
  private:
    AudacityProject *mProject;
@@ -376,6 +394,18 @@ class AUDACITY_DLL_API TrackList final : public wxEvtHandler
    // Create an empty TrackList
    TrackList(bool destructorDeletesTracks = false);
 
+   // Allow copy -- a deep copy that duplicates all tracks
+   TrackList(const TrackList &that);
+   TrackList &operator= (const TrackList &that);
+
+   // Allow move
+   TrackList(TrackList &&that);
+   TrackList& operator= (TrackList&&);
+
+   // Move is defined in terms of Swap
+   void Swap(TrackList &that);
+
+
    // Destructor
    virtual ~TrackList();
 
@@ -419,6 +449,7 @@ class AUDACITY_DLL_API TrackList final : public wxEvtHandler
    bool Move(Track * t, bool up) { return up ? MoveUp(t) : MoveDown(t); }
 
    TimeTrack *GetTimeTrack();
+   const TimeTrack *GetTimeTrack() const;
 
    /** \brief Find out how many channels this track list mixes to
    *
@@ -426,11 +457,10 @@ class AUDACITY_DLL_API TrackList final : public wxEvtHandler
    * Mono, Stereo etc. @param selectionOnly Whether to consider the entire track
    * list or only the selected members of it
    */
-   int GetNumExportChannels(bool selectionOnly);
+   int GetNumExportChannels(bool selectionOnly) const;
 
-   WaveTrackArray GetWaveTrackArray(bool selectionOnly);
-   /** Consider this function depricated in favor of GetWaveTrackArray */
-   void GetWaveTracks(bool selectionOnly, int *num, WaveTrack ***tracks);
+   WaveTrackArray GetWaveTrackArray(bool selectionOnly, bool includeMuted = true);
+   WaveTrackConstArray GetWaveTrackConstArray(bool selectionOnly, bool includeMuted = true) const;
 
 #if defined(USE_MIDI)
    NoteTrackArray GetNoteTrackArray(bool selectionOnly);
@@ -450,16 +480,18 @@ class AUDACITY_DLL_API TrackList final : public wxEvtHandler
 
 #if LEGACY_PROJECT_FILE_SUPPORT
    // File I/O
-   virtual bool Load(wxTextFile * in, DirManager * dirManager);
-   virtual bool Save(wxTextFile * out, bool overwrite);
+   bool Load(wxTextFile * in, DirManager * dirManager) override;
+   bool Save(wxTextFile * out, bool overwrite) override;
 #endif
 
  private:
+   void DoAssign(const TrackList &that);
+       
    void RecalcPositions(const TrackListNode *node);
    void UpdatedEvent(const TrackListNode *node);
    void ResizedEvent(const TrackListNode *node);
 
-   void Swap(TrackListNode * s1, TrackListNode * s2);
+   void SwapNodes(TrackListNode * s1, TrackListNode * s2);
 
    TrackListNode *head;
    TrackListNode *tail;

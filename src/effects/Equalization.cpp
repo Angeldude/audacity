@@ -140,6 +140,11 @@ enum kInterpolations
    kNumInterpolations
 };
 
+// Increment whenever EQCurves.xml is updated
+#define EQCURVES_VERSION   1
+#define EQCURVES_REVISION  0
+#define UPDATE_ALL 0 // 0 = merge new presets only, 1 = Update all factory presets.
+
 static const wxString kInterpStrings[kNumInterpolations] =
 {
    /* i18n-hint: Technical term for a kind of curve.*/
@@ -512,6 +517,14 @@ bool EffectEqualization::Init()
    }
 
    mHiFreq = rate / 2.0;
+   // Unlikely, but better than crashing.
+   if (mHiFreq <= loFreqI) {
+      wxMessageBox( _("Track sample rate is too low for this effect."),
+                    _("Effect Unavailable"),
+                    wxOK | wxCENTRE);
+      return(false);
+   }
+
    mLoFreq = loFreqI;
 
    mBandsInUse = 0;
@@ -1204,6 +1217,7 @@ bool EffectEqualization::ProcessOne(int count, WaveTrack * t,
             //put the processed audio in
             bool bResult = t->Paste(clipStartEndTimes[i].first, toClipOutput);
             wxASSERT(bResult); // TO DO: Actually handle this.
+            wxUnusedVar(bResult);
             //if the clip was only partially selected, the Paste will have created a split line.  Join is needed to take care of this
             //This is not true when the selection is fully contained within one clip (second half of conditional)
             if( (clipRealStartEndTimes[i].first  != clipStartEndTimes[i].first ||
@@ -1372,44 +1386,34 @@ void EffectEqualization::LoadCurves(const wxString &fileName, bool append)
    //       expects the ".audacity" portion to be a directory.
    // MJS:  I don't know what the above means, or if I have broken it.
    wxFileName fn;
-   if(fileName == wxT(""))
+
+   if(fileName == wxT("")) {
+      // Check if presets are up to date.
+      wxString eqCurvesCurrentVersion = wxString::Format(wxT("%d.%d"), EQCURVES_VERSION, EQCURVES_REVISION);
+      wxString eqCurvesInstalledVersion = wxT("");
+      gPrefs->Read(wxT("/Effects/Equalization/PresetVersion"), &eqCurvesInstalledVersion, wxT(""));
+
+      bool needUpdate = (eqCurvesCurrentVersion != eqCurvesInstalledVersion);
+      
+      // UpdateDefaultCurves allows us to import new factory presets only,
+      // or update all factory preset curves.
+      if (needUpdate)
+         UpdateDefaultCurves( UPDATE_ALL != 0 );
       fn = wxFileName( FileNames::DataDir(), wxT("EQCurves.xml") );
-   else
+   }
+   else {
       fn = wxFileName(fileName); // user is loading a specific set of curves
+   }
 
    // If requested file doesn't exist...
-   if( !fn.FileExists() )
-   {
-      // look in data dir first, in case the user has their own defaults (maybe downloaded ones)
-      fn = wxFileName( FileNames::DataDir(), wxT("EQDefaultCurves.xml") );
-      if( !fn.FileExists() )
-      {  // Default file not found in the data dir.  Fall back to Resources dir.
-         // See http://docs.wxwidgets.org/trunk/classwx_standard_paths.html#5514bf6288ee9f5a0acaf065762ad95d
-         static wxString resourcesDir;
-         resourcesDir = wxStandardPaths::Get().GetResourcesDir();
-         fn = wxFileName( resourcesDir, wxT("EQDefaultCurves.xml") );
-      }
-      if( !fn.FileExists() )
-      {
-         // LLL:  Is there really a need for an error message at all???
-         //wxString errorMessage;
-         //errorMessage.Printf(_("EQCurves.xml and EQDefaultCurves.xml were not found on your system.\nPlease press 'help' to visit the download page.\n\nSave the curves at %s"), FileNames::DataDir().c_str());
-         //ShowErrorDialog(mUIParent, _("EQCurves.xml and EQDefaultCurves.xml missing"),
-         //   errorMessage, wxT("http://wiki.audacityteam.org/wiki/EQCurvesDownload"), false);
-
-         // Have another go at finding EQCurves.xml in the data dir, in case 'help' helped
-         fn = wxFileName( FileNames::DataDir(), wxT("EQDefaultCurves.xml") );
-         if( !fn.FileExists() )
-         {
-            mCurves.Clear();
-            mCurves.Add( _("unnamed") );   // we still need a default curve to use
-            return;
-         }
-      }
+   if( !fn.FileExists() && !GetDefaultFileName(fn) ) {
+      mCurves.Clear();
+      mCurves.Add( _("unnamed") );   // we still need a default curve to use
+      return;
    }
 
    EQCurve tempCustom(wxT("temp"));
-   if( append == false) // Start from scratch
+   if( append == false ) // Start from scratch
       mCurves.Clear();
    else  // appending so copy and remove 'unnamed', to replace later
    {
@@ -1456,6 +1460,149 @@ void EffectEqualization::LoadCurves(const wxString &fileName, bool append)
 
    return;
 }
+
+//
+// Update presets to match Audacity version.
+//
+void EffectEqualization::UpdateDefaultCurves(bool updateAll /* false */)
+{
+   if (mCurves.GetCount() == 0)
+      return;
+
+   /* i18n-hint: name of the 'unnamed' custom curve */
+   wxString unnamed = _("unnamed");
+
+   // Save the "unnamed" curve and remove it so we can add it back as the final curve.
+   EQCurve userUnnamed(wxT("temp"));
+   userUnnamed = mCurves.Last();
+   mCurves.RemoveAt(mCurves.Count()-1);
+
+   EQCurveArray userCurves = mCurves;
+   mCurves.Clear();
+   wxFileName fn;
+   XMLFileReader reader;
+
+   if(!GetDefaultFileName(fn) || !reader.Parse(this, fn.GetFullPath())) {
+      wxLogError(wxT("EQDefaultCurves.xml could not be read."));
+      return;
+   }
+
+   EQCurveArray defaultCurves = mCurves;
+   mCurves.Clear(); // clear now so that we can sort then add back.
+
+   // Remove "unnamed" if it exists.
+   if (defaultCurves.Last().Name == unnamed) {
+      defaultCurves.RemoveAt(defaultCurves.Count()-1);
+   }
+   else {
+      wxLogError(wxT("Error in EQDefaultCurves.xml"));
+   }
+
+   int numUserCurves = userCurves.GetCount();
+   int numDefaultCurves = defaultCurves.GetCount();
+   EQCurve tempCurve(wxT("test"));
+
+   if (updateAll) {
+      // Update all factory preset curves.
+      // Sort and add factory defaults first;
+      mCurves = defaultCurves;
+      mCurves.Sort(SortCurvesByName);
+      // then add remaining user curves:
+      for (int curveCount = 0; curveCount < numUserCurves; curveCount++) {
+         bool isCustom = true;
+         tempCurve = userCurves[curveCount];
+         // is the name in the dfault set?
+         for (int defCurveCount = 0; defCurveCount < numDefaultCurves; defCurveCount++) {
+            if (tempCurve.Name == mCurves[defCurveCount].Name) {
+               isCustom = false;
+               break;
+            }
+         }
+         // if tempCurve is not in the default set, add it to mCurves.
+         if (isCustom) {
+            mCurves.Add(tempCurve);
+         }
+      }
+   }
+   else {
+      // Import new factory defaults but retain all user modified curves.
+      for (int defCurveCount = 0; defCurveCount < numDefaultCurves; defCurveCount++) {
+         bool isUserCurve = false;
+         // Add if the curve is in the user's set (preserve user's copy)
+         for (int userCurveCount = 0; userCurveCount < numUserCurves; userCurveCount++) {
+            if (userCurves[userCurveCount].Name == defaultCurves[defCurveCount].Name) {
+               isUserCurve = true;
+               mCurves.Add(userCurves[userCurveCount]);
+               break;
+            }
+         }
+         if (!isUserCurve) {
+            mCurves.Add(defaultCurves[defCurveCount]);
+         }
+      }
+      mCurves.Sort(SortCurvesByName);
+      // now add the rest of the user's curves.
+      for (int userCurveCount = 0; userCurveCount < numUserCurves; userCurveCount++) {
+         bool isDefaultCurve = false;
+         tempCurve = userCurves[userCurveCount];
+         for (int defCurveCount = 0; defCurveCount < numDefaultCurves; defCurveCount++) {
+            if (tempCurve.Name == defaultCurves[defCurveCount].Name) {
+               isDefaultCurve = true;
+               break;
+            }
+         }
+         if (!isDefaultCurve) {
+            mCurves.Add(tempCurve);
+         }
+      }
+   }
+   defaultCurves.Clear();
+   userCurves.Clear();
+
+   // Add back old "unnamed"
+   if(userUnnamed.Name == unnamed) {
+      mCurves.Add( userUnnamed );   // we always need a default curve to use
+   }
+
+   SaveCurves();
+
+   // Write current EqCurve version number
+   // TODO: Probably better if we used pluginregistry.cfg
+   wxString eqCurvesCurrentVersion = wxString::Format(wxT("%d.%d"), EQCURVES_VERSION, EQCURVES_REVISION);
+   gPrefs->Write(wxT("/Effects/Equalization/PresetVersion"), eqCurvesCurrentVersion);
+   gPrefs->Flush();
+
+   return;
+}
+
+//
+// Get fully qualified filename of EQDefaultCurves.xml
+//
+bool EffectEqualization::GetDefaultFileName(wxFileName &fileName)
+{
+   // look in data dir first, in case the user has their own defaults (maybe downloaded ones)
+   fileName = wxFileName( FileNames::DataDir(), wxT("EQDefaultCurves.xml") );
+   if( !fileName.FileExists() )
+   {  // Default file not found in the data dir.  Fall back to Resources dir.
+      // See http://docs.wxwidgets.org/trunk/classwx_standard_paths.html#5514bf6288ee9f5a0acaf065762ad95d
+      static wxString resourcesDir;
+      resourcesDir = wxStandardPaths::Get().GetResourcesDir();
+      fileName = wxFileName( resourcesDir, wxT("EQDefaultCurves.xml") );
+   }
+   if( !fileName.FileExists() )
+   {
+      // LLL:  Is there really a need for an error message at all???
+      //wxString errorMessage;
+      //errorMessage.Printf(_("EQCurves.xml and EQDefaultCurves.xml were not found on your system.\nPlease press 'help' to visit the download page.\n\nSave the curves at %s"), FileNames::DataDir().c_str());
+      //ShowErrorDialog(mUIParent, _("EQCurves.xml and EQDefaultCurves.xml missing"),
+      //   errorMessage, wxT("http://wiki.audacityteam.org/wiki/EQCurvesDownload"), false);
+
+      // Have another go at finding EQCurves.xml in the data dir, in case 'help' helped
+      fileName = wxFileName( FileNames::DataDir(), wxT("EQDefaultCurves.xml") );
+   }
+   return (fileName.FileExists());
+}
+
 
 //
 // Save curves to external file
@@ -1515,84 +1662,146 @@ void EffectEqualization::SaveCurves(const wxString &fileName)
 void EffectEqualization::setCurve(int currentCurve)
 {
    // Set current choice
-   Select( currentCurve );
-
+   Select(currentCurve);
    wxASSERT( currentCurve < (int) mCurves.GetCount() );
-   bool changed = false;
 
-   if( mLin )   // linear freq mode?
-   {
-      Envelope *env = mLinEnvelope;
-      env->Flatten(0.);
-      env->SetTrackLen(1.0);
+   Envelope *env;
+   int numPoints = (int) mCurves[currentCurve].points.GetCount();
 
-      if( mCurves[currentCurve].points.GetCount() )
-      {
-         double when, value;
-         int i;
-         int nCurvePoints = mCurves[currentCurve].points.GetCount();
-         for(i=0;i<nCurvePoints;i++)
-         {
-            when = mCurves[currentCurve].points[i].Freq / mHiFreq;
-            value = mCurves[currentCurve].points[i].dB;
-            if(when <= 1)
-               env->Insert(when, value);
-            else
-               break;
-         }
-         if ( i != nCurvePoints) // there are more points at higher freqs
-         {
-            when = 1.;  // set the RH end to the next highest point
-            value = mCurves[currentCurve].points[nCurvePoints-1].dB;
-            env->Insert(when, value);
-            changed = true;
-         }
-      }
+   if (mLin) {  // linear freq mode
+      env = mLinEnvelope;
    }
-   else
-   {
-      Envelope *env = mLogEnvelope;
-      env->Flatten(0.);
-      env->SetTrackLen(1.0);
+   else { // log freq mode
+      env = mLogEnvelope;
+   }
+   env->Flatten(0.);
+   env->SetTrackLen(1.0);
 
-      if( mCurves[currentCurve].points.GetCount() )
-      {
-         double when, value;
-         double loLog = log10(20.);
+   // Handle special case of no points.
+   if (numPoints == 0) {
+      ForceRecalc();
+      return;
+   }
+
+   double when, value;
+
+   // Handle special case 1 point.
+   if (numPoints == 1) {
+      // only one point, so ensure it is in range then return.
+      when = mCurves[currentCurve].points[0].Freq;
+      if (mLin) {
+         when = when / mHiFreq;
+      }
+      else {   // log scale
+         // We don't go below loFreqI (20 Hz) in log view.
+         double loLog = log10((double)loFreqI);
          double hiLog = log10(mHiFreq);
          double denom = hiLog - loLog;
-         int i;
-         int nCurvePoints = mCurves[currentCurve].points.GetCount();
+         when = (log10(std::max((double) loFreqI, when)) - loLog)/denom;
+      }
+      value = mCurves[currentCurve].points[0].dB;
+      env->Insert(std::min(1.0, std::max(0.0, when)), value);
+      ForceRecalc();
+      return;
+   }
 
-         for(i=0;i<nCurvePoints;i++)
-         {
-            double flog = log10(mCurves[currentCurve].points[i].Freq);
-            if( flog >= loLog )
-            {
-               when = (flog - loLog)/denom;
-               value = mCurves[currentCurve].points[i].dB;
-               if(when <= 1.)
-                  env->Insert(when, value);
-               else
-               {  // we have a point beyond fs/2.  Insert it so that env code can use it.
-                  // but just this one, we have no use for the rest
-                  env->SetTrackLen(when); // can't Insert if the envelope isn't long enough
-                  env->Insert(when, value);
-                  break;
-               }
-            }
-            else
-            {  //get the first point as close as we can to the last point requested
-               changed = true;
-               //double f = mCurves[currentCurve].points[i].Freq;
-               //double v = mCurves[currentCurve].points[i].dB;
-               mLogEnvelope->Insert(0., mCurves[currentCurve].points[i].dB);
-            }
+   // We have at least two points, so ensure they are in frequency order.
+   mCurves[currentCurve].points.Sort(SortCurvePoints);
+
+   if (mCurves[currentCurve].points[0].Freq < 0) {
+      // Corrupt or invalid curve, so bail.
+      ForceRecalc();
+      return;
+   }
+
+   if(mLin) {   // linear Hz scale
+      for(int pointCount = 0; pointCount < numPoints; pointCount++) {
+         when = mCurves[currentCurve].points[pointCount].Freq / mHiFreq;
+         value = mCurves[currentCurve].points[pointCount].dB;
+         if(when <= 1) {
+            env->Insert(when, value);
+         }
+         else {
+            // There are more points at higher freqs, so interpolate next one then stop.
+            when = 1.0;
+            double lastF = mCurves[currentCurve].points[pointCount-1].Freq;
+            double nextF = mCurves[currentCurve].points[pointCount].Freq;
+            double lastDB = mCurves[currentCurve].points[pointCount-1].dB;
+            double nextDB = mCurves[currentCurve].points[pointCount].dB;
+            value = lastDB + ((nextDB - lastDB) * ((mHiFreq - lastF) / (nextF - lastF)));
+            env->Insert(when, value);
+            break;
          }
       }
    }
-   if(changed) // not all points were loaded so switch to unnamed
-      EnvelopeUpdated();
+   else {   // log Hz scale
+      double loLog = log10((double) loFreqI);
+      double hiLog = log10(mHiFreq);
+      double denom = hiLog - loLog;
+      int firstAbove20Hz;
+
+      // log scale EQ starts at 20 Hz (threshold of hearing).
+      // so find the first point (if any) above 20 Hz.
+      for (firstAbove20Hz = 0; firstAbove20Hz < numPoints; firstAbove20Hz++) {
+         if (mCurves[currentCurve].points[firstAbove20Hz].Freq > loFreqI)
+            break;
+      }
+
+      if (firstAbove20Hz == numPoints) {
+         // All points below 20 Hz, so just use final point.
+         when = 0.0;
+         value = mCurves[currentCurve].points[numPoints-1].dB;
+         env->Insert(when, value);
+         ForceRecalc();
+         return;
+      }
+
+      if (firstAbove20Hz > 0) {
+         // At least one point is before 20 Hz and there are more
+         // beyond 20 Hz, so interpolate the first
+         double prevF = mCurves[currentCurve].points[firstAbove20Hz-1].Freq;
+         prevF = log10(std::max(1.0, prevF)); // log zero is bad.
+         double prevDB = mCurves[currentCurve].points[firstAbove20Hz-1].dB;
+         double nextF = log10(mCurves[currentCurve].points[firstAbove20Hz].Freq);
+         double nextDB = mCurves[currentCurve].points[firstAbove20Hz].dB;
+         when = 0.0;
+         value = nextDB - ((nextDB - prevDB) * ((nextF - loLog) / (nextF - prevF)));
+         env->Insert(when, value);
+      }
+
+      // Now get the rest.
+      for(int pointCount = firstAbove20Hz; pointCount < numPoints; pointCount++)
+      {
+         double flog = log10(mCurves[currentCurve].points[pointCount].Freq);
+         wxASSERT(mCurves[currentCurve].points[pointCount].Freq >= loFreqI);
+
+         when = (flog - loLog)/denom;
+         value = mCurves[currentCurve].points[pointCount].dB;
+         if(when <= 1.0) {
+            env->Insert(when, value);
+         }
+         else {
+            // This looks weird when adjusting curve in Draw mode if
+            // there is a point off-screen.
+
+            /*
+            // we have a point beyond fs/2.  Insert it so that env code can use it.
+            // but just this one, we have no use for the rest
+            env->SetTrackLen(when); // can't Insert if the envelope isn't long enough
+            env->Insert(when, value);
+            break;
+            */
+
+            // interpolate the final point instead
+            when = 1.0;
+            double logLastF = log10(mCurves[currentCurve].points[pointCount-1].Freq);
+            double lastDB = mCurves[currentCurve].points[pointCount-1].dB;
+            value = lastDB + ((value - lastDB) * ((log10(mHiFreq) - logLastF) / (flog - logLastF)));
+            env->Insert(when, value);
+            break;
+         }
+      }
+   }
    ForceRecalc();
 }
 
@@ -2133,7 +2342,10 @@ void EffectEqualization::EnvLinToLog(void)
    {
       if( when[i]*mHiFreq >= 20 )
       {
-         mLogEnvelope->Insert((log10(when[i]*mHiFreq)-loLog)/denom , value[i]);
+         // Caution: on Linux, when when == 20, the log calulation rounds
+         // to just under zero, which causes an assert error.
+         double flog = (log10(when[i]*mHiFreq)-loLog)/denom;
+         mLogEnvelope->Insert(std::max(0.0, flog) , value[i]);
       }
       else
       {  //get the first point as close as we can to the last point requested

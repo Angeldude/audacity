@@ -33,6 +33,7 @@
 #include "widgets/Grid.h"
 #include "xml/XMLTagHandler.h"
 
+#include "MemoryX.h"
 #include <utility>
 #include <wx/dialog.h>
 #include <wx/hashmap.h>
@@ -83,9 +84,9 @@ class AUDACITY_DLL_API Tags final : public XMLTagHandler {
 
    bool ShowEditDialog(wxWindow *parent, const wxString &title, bool force = false);
 
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
-   virtual XMLTagHandler *HandleXMLChild(const wxChar *tag);
-   virtual void WriteXML(XMLWriter &xmlFile);
+   bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) override;
+   XMLTagHandler *HandleXMLChild(const wxChar *tag) override;
+   void WriteXML(XMLWriter &xmlFile) /* not override */;
 
    void AllowEditTitle(bool editTitle);
    void AllowEditTrackNumber(bool editTrackNumber);
@@ -143,8 +144,8 @@ class TagsEditor final : public wxDialog
 
    void PopulateOrExchange(ShuttleGui & S);
 
-   virtual bool TransferDataToWindow();
-   virtual bool TransferDataFromWindow();
+   bool TransferDataToWindow() override;
+   bool TransferDataFromWindow() override;
 
  private:
    void PopulateGenres();

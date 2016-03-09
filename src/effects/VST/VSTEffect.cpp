@@ -93,6 +93,7 @@
 #include "audacity/ConfigInterface.h"
 
 #include "VSTEffect.h"
+#include "../../MemoryX.h"
 
 // NOTE:  To debug the subprocess, use wxLogDebug and, on Windows, Debugview
 //        from TechNet (Sysinternals).
@@ -456,7 +457,7 @@ bool VSTEffectsModule::RegisterPlugin(PluginManagerInterface & pm, const wxStrin
    wxString effectIDs = wxT("0;");
    wxStringTokenizer effectTzr(effectIDs, wxT(";"));
 
-   wxProgressDialog *progress = NULL;
+   Maybe<wxProgressDialog> progress{};
    size_t idCnt = 0;
    size_t idNdx = 0;
 
@@ -517,16 +518,16 @@ bool VSTEffectsModule::RegisterPlugin(PluginManagerInterface & pm, const wxStrin
                idCnt = effectTzr.CountTokens();
                if (idCnt > 3)
                {
-                  progress = new wxProgressDialog(_("Scanning Shell VST"),
-                                                  wxString::Format(_("Registering %d of %d: %-64.64s"), 0, idCnt, proc.GetName().c_str()),
-                                                  idCnt,
-                                                  NULL,
-                                                  wxPD_APP_MODAL |
-                                                  wxPD_AUTO_HIDE |
-                                                  wxPD_CAN_ABORT |
-                                                  wxPD_ELAPSED_TIME |
-                                                  wxPD_ESTIMATED_TIME |
-                                                  wxPD_REMAINING_TIME);
+                  progress.create( _("Scanning Shell VST"),
+                        wxString::Format(_("Registering %d of %d: %-64.64s"), 0, idCnt, proc.GetName().c_str()),
+                        static_cast<int>(idCnt),
+                        nullptr,
+                        wxPD_APP_MODAL |
+                           wxPD_AUTO_HIDE |
+                           wxPD_CAN_ABORT |
+                           wxPD_ELAPSED_TIME |
+                           wxPD_ESTIMATED_TIME |
+                           wxPD_REMAINING_TIME );
                   progress->Show();
                }
             break;
@@ -609,11 +610,6 @@ bool VSTEffectsModule::RegisterPlugin(PluginManagerInterface & pm, const wxStrin
             break;
          }
       }
-   }
-
-   if (progress)
-   {
-      delete progress;
    }
 
    return valid;
@@ -2339,7 +2335,7 @@ bool VSTEffect::LoadParameters(const wxString & group)
 {
    wxString value;
 
-   VstPatchChunkInfo info = {1, mAEffect->uniqueID, mAEffect->version, mAEffect->numParams};
+   VstPatchChunkInfo info = {1, mAEffect->uniqueID, mAEffect->version, mAEffect->numParams, ""};
    mHost->GetPrivateConfig(group, wxT("UniqueID"), info.pluginUniqueID, info.pluginUniqueID);
    mHost->GetPrivateConfig(group, wxT("Version"), info.pluginVersion, info.pluginVersion);
    mHost->GetPrivateConfig(group, wxT("Elements"), info.numElements, info.numElements);
@@ -3134,7 +3130,8 @@ bool VSTEffect::LoadFXB(const wxFileName & fn)
          1,
          wxINT32_SWAP_ON_LE(iptr[4]),
          wxINT32_SWAP_ON_LE(iptr[5]),
-         wxINT32_SWAP_ON_LE(iptr[6])
+         wxINT32_SWAP_ON_LE(iptr[6]),
+         ""
       };
 
       // Ensure this program looks to belong to the current plugin
@@ -3328,7 +3325,8 @@ bool VSTEffect::LoadFXProgram(unsigned char **bptr, ssize_t & len, int index, bo
       1,
       wxINT32_SWAP_ON_LE(iptr[4]),
       wxINT32_SWAP_ON_LE(iptr[5]),
-      wxINT32_SWAP_ON_LE(iptr[6])
+      wxINT32_SWAP_ON_LE(iptr[6]),
+      ""
    };
 
    // Ensure this program looks to belong to the current plugin

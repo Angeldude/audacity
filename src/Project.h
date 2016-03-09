@@ -133,12 +133,12 @@ class ImportXMLTagHandler final : public XMLTagHandler
  public:
    ImportXMLTagHandler(AudacityProject* pProject) { mProject = pProject; }
 
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
-   virtual XMLTagHandler *HandleXMLChild(const wxChar * WXUNUSED(tag)) { return NULL; }
+   bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) override;
+   XMLTagHandler *HandleXMLChild(const wxChar * WXUNUSED(tag))  override { return NULL; }
 
    // Don't want a WriteXML method because ImportXMLTagHandler is not a WaveTrack.
    // <import> tags are instead written by AudacityProject::WriteXML.
-   //    virtual void WriteXML(XMLWriter &xmlFile) { wxASSERT(false); }
+   //    void WriteXML(XMLWriter &xmlFile) /* not override */ { wxASSERT(false); }
 
  private:
    AudacityProject* mProject;
@@ -390,26 +390,27 @@ class AUDACITY_DLL_API AudacityProject final : public wxFrame,
    double PixelWidthBeforeTime(double scrollto) const;
    void SetHorizontalThumb(double scrollto);
 
+   // PRL:  old and incorrect comment below, these functions are used elsewhere than TrackPanel
    // TrackPanel access
-   virtual wxSize GetTPTracksUsableArea();
-   virtual void RefreshTPTrack(Track* pTrk, bool refreshbacking = true);
+   wxSize GetTPTracksUsableArea() /* not override */;
+   void RefreshTPTrack(Track* pTrk, bool refreshbacking = true) /* not override */;
 
    // TrackPanel callback methods, overrides of TrackPanelListener
-   virtual void TP_DisplaySelection();
-   virtual void TP_DisplayStatusMessage(const wxString &msg) override;
+   void TP_DisplaySelection() override;
+   void TP_DisplayStatusMessage(const wxString &msg) override;
 
-   virtual ToolsToolBar * TP_GetToolsToolBar();
+   ToolsToolBar * TP_GetToolsToolBar() override;
 
-   virtual void TP_PushState(const wxString &longDesc, const wxString &shortDesc,
+   void TP_PushState(const wxString &longDesc, const wxString &shortDesc,
                              UndoPush flags) override;
-   virtual void TP_ModifyState(bool bWantsAutoSave);    // if true, writes auto-save file. Should set only if you really want the state change restored after
+   void TP_ModifyState(bool bWantsAutoSave) override;    // if true, writes auto-save file. Should set only if you really want the state change restored after
                                                         // a crash, as it can take many seconds for large (eg. 10 track-hours) projects
-   virtual void TP_RedrawScrollbars();
-   virtual void TP_ScrollLeft();
-   virtual void TP_ScrollRight();
-   virtual void TP_ScrollWindow(double scrollto);
-   virtual void TP_ScrollUpDown(int delta);
-   virtual void TP_HandleResize();
+   void TP_RedrawScrollbars() override;
+   void TP_ScrollLeft() override;
+   void TP_ScrollRight() override;
+   void TP_ScrollWindow(double scrollto) override;
+   void TP_ScrollUpDown(int delta) override;
+   void TP_HandleResize() override;
 
    // ToolBar
 
@@ -442,44 +443,44 @@ private:
 public:
    // SelectionBarListener callback methods
 
-   virtual double AS_GetRate();
-   virtual void AS_SetRate(double rate);
-   virtual int AS_GetSnapTo();
-   virtual void AS_SetSnapTo(int snap);
-   virtual const wxString & AS_GetSelectionFormat();
-   virtual void AS_SetSelectionFormat(const wxString & format);
-   virtual void AS_ModifySelection(double &start, double &end, bool done);
+   double AS_GetRate() override;
+   void AS_SetRate(double rate) override;
+   int AS_GetSnapTo() override;
+   void AS_SetSnapTo(int snap) override;
+   const wxString & AS_GetSelectionFormat() override;
+   void AS_SetSelectionFormat(const wxString & format) override;
+   void AS_ModifySelection(double &start, double &end, bool done) override;
 
    // SpectralSelectionBarListener callback methods
 
-   virtual double SSBL_GetRate() const;
+   double SSBL_GetRate() const override;
 
-   virtual const wxString & SSBL_GetFrequencySelectionFormatName();
-   virtual void SSBL_SetFrequencySelectionFormatName(const wxString & formatName);
+   const wxString & SSBL_GetFrequencySelectionFormatName() override;
+   void SSBL_SetFrequencySelectionFormatName(const wxString & formatName) override;
 
-   virtual const wxString & SSBL_GetBandwidthSelectionFormatName();
-   virtual void SSBL_SetBandwidthSelectionFormatName(const wxString & formatName);
+   const wxString & SSBL_GetBandwidthSelectionFormatName() override;
+   void SSBL_SetBandwidthSelectionFormatName(const wxString & formatName) override;
 
-   virtual void SSBL_ModifySpectralSelection(double &bottom, double &top, bool done);
+   void SSBL_ModifySpectralSelection(double &bottom, double &top, bool done) override;
 
    void SetStateTo(unsigned int n);
 
    // XMLTagHandler callback methods
 
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
-   virtual XMLTagHandler *HandleXMLChild(const wxChar *tag);
-   virtual void WriteXML(XMLWriter &xmlFile);
+   bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) override;
+   XMLTagHandler *HandleXMLChild(const wxChar *tag) override;
+   void WriteXML(XMLWriter &xmlFile) /* not override */;
 
    void WriteXMLHeader(XMLWriter &xmlFile);
 
-   PlayMode mLastPlayMode;
+   PlayMode mLastPlayMode{ normalPlay };
    ViewInfo mViewInfo;
 
    // Audio IO callback methods
-   virtual void OnAudioIORate(int rate);
-   virtual void OnAudioIOStartRecording();
-   virtual void OnAudioIOStopRecording();
-   virtual void OnAudioIONewBlockFiles(const AutoSaveFile & blockFileLog);
+   void OnAudioIORate(int rate) override;
+   void OnAudioIOStartRecording() override;
+   void OnAudioIOStopRecording() override;
+   void OnAudioIONewBlockFiles(const AutoSaveFile & blockFileLog) override;
 
    // Command Handling
    bool TryToMakeActionAllowed( wxUint32 & flags, wxUint32 flagsRqd, wxUint32 mask );
@@ -552,7 +553,7 @@ public:
 
    // History/Undo manager
    std::unique_ptr<UndoManager> mUndoManager;
-   bool mDirty;
+   bool mDirty{ false };
 
    // Commands
 
@@ -567,39 +568,39 @@ public:
 
    wxStatusBar *mStatusBar;
 
-   AdornedRulerPanel *mRuler;
-   TrackPanel *mTrackPanel;
-   TrackFactory *mTrackFactory;
+   AdornedRulerPanel *mRuler{};
+   TrackPanel *mTrackPanel{};
+   TrackFactory *mTrackFactory{};
    wxPanel * mMainPanel;
    wxScrollBar *mHsbar;
    wxScrollBar *mVsbar;
-   bool mAutoScrolling;
-   bool mActive;
+   bool mAutoScrolling{ false };
+   bool mActive{ true };
    bool mIconized;
 
-   HistoryWindow *mHistoryWindow;
-   LyricsWindow* mLyricsWindow;
-   MixerBoard* mMixerBoard;
-   MixerBoardFrame* mMixerBoardFrame;
+   HistoryWindow *mHistoryWindow{};
+   LyricsWindow* mLyricsWindow{};
+   MixerBoard* mMixerBoard{};
+   MixerBoardFrame* mMixerBoardFrame{};
 
-   FreqWindow *mFreqWindow;
-   ContrastDialog *mContrastDialog;
+   FreqWindow *mFreqWindow{};
+   ContrastDialog *mContrastDialog{};
 
    // dialog for missing alias warnings
-   wxDialog            *mAliasMissingWarningDialog;
+   wxDialog            *mAliasMissingWarningDialog{};
 
-   bool mShownOnce;
+   bool mShownOnce{ false };
 
    // Project owned meters
-   Meter *mPlaybackMeter;
-   Meter *mCaptureMeter;
+   Meter *mPlaybackMeter{};
+   Meter *mCaptureMeter{};
 
  public:
-   ToolManager *mToolManager;
+    ToolManager *mToolManager{};
    bool mShowSplashScreen;
    wxString mHelpPref;
    wxString mSoloPref;
-   bool mbBusyImporting; // used to fix bug 584
+   bool mbBusyImporting{ false }; // used to fix bug 584
 
    void SetNormalizedWindowState(wxRect pSizeAndLocation) {  mNormalizedWindowState = pSizeAndLocation;   }
    wxRect GetNormalizedWindowState() const { return mNormalizedWindowState;   }
@@ -614,12 +615,12 @@ public:
 #define kAudacitySortByName (1 << 2)
    void SortTracks(int flags);
 
-   int  mAudioIOToken;
+   int  mAudioIOToken{ -1 };
 
-   bool mIsDeleting;
-   bool mTracksFitVerticallyZoomed;  //lda
+   bool mIsDeleting{ false };
+   bool mTracksFitVerticallyZoomed{ false };  //lda
    bool mNormalizeOnLoad;  //lda
-   bool mShowId3Dialog; //lda
+   bool mShowId3Dialog{ true }; //lda
    bool mEmptyCanBeDirty;
 
    bool mSelectAllOnNone;
@@ -629,33 +630,33 @@ public:
    bool mLockPlayRegion;
 
    // See AudacityProject::OnActivate() for an explanation of this.
-   wxWindow *mLastFocusedWindow;
+   wxWindow *mLastFocusedWindow{};
 
-   ImportXMLTagHandler* mImportXMLTagHandler;
+   ImportXMLTagHandler* mImportXMLTagHandler{};
 
    // Last auto-save file name and path (empty if none)
    wxString mAutoSaveFileName;
 
    // Are we currently auto-saving or not?
-   bool mAutoSaving;
+   bool mAutoSaving{ false };
 
    // Has this project been recovered from an auto-saved version
-   bool mIsRecovered;
+   bool mIsRecovered{ false };
 
    // The auto-save data dir the project has been recovered from
    wxString mRecoveryAutoSaveDataDir;
 
    // The handler that handles recovery of <recordingrecovery> tags
-   RecordingRecoveryHandler* mRecordingRecoveryHandler;
+   RecordingRecoveryHandler* mRecordingRecoveryHandler{};
 
    // Dependencies have been imported and a warning should be shown on save
-   bool mImportedDependencies;
+   bool mImportedDependencies{ false };
 
-   bool mWantSaveCompressed;
+   bool mWantSaveCompressed{ false };
    wxArrayString mStrOtherNamesArray; // used to make sure compressed file names are unique
 
    // Last effect applied to this project
-   PluginID mLastEffect;
+   PluginID mLastEffect{};
    
    // The screenshot class needs to access internals
    friend class ScreenshotCommand;
@@ -663,18 +664,18 @@ public:
    wxRect mNormalizedWindowState;
 
    //flag for cancellation of timer record.
-   bool mTimerRecordCanceled;
+   bool mTimerRecordCanceled{ false  };
 
    // Are we currently closing as the result of a menu command?
-   bool mMenuClose;
+   bool mMenuClose{ false };
 
-   bool mbInitializingScrollbar;
+   bool mbInitializingScrollbar{ false };
 
    // Flag that we're recoding.
-   bool mIsCapturing;
+   bool mIsCapturing{ false };
 
    // Keyboard capture
-   wxWindow *mKeyboardCaptureHandler;
+   wxWindow *mKeyboardCaptureHandler{};
 
    double mSeekShort;
    double mSeekLong;
@@ -682,7 +683,7 @@ public:
    wxLongLong mLastSelectionAdjustment;
 
    // See explanation in OnCloseWindow
-   bool mIsBeingDeleted;
+   bool mIsBeingDeleted{ false };
 
    // CommandManager needs to use private methods
    friend class CommandManager;

@@ -170,9 +170,6 @@ void QuitAudacity();
 // Marks strings for extraction only...must use wxGetTranslation() to translate.
 #define XO(s) wxT(s)
 
-#include <memory>
-#include <utility>
-
 // This renames a good use of this C++ keyword that we don't need to review when hunting for leaks.
 #define PROHIBITED = delete
 
@@ -181,65 +178,5 @@ void QuitAudacity();
 // You may use it in NEW code when the NEW expression is the constructor argument for a standard smart
 // pointer like std::unique_ptr or std::shared_ptr.
 #define safenew new
-
-#if !defined(__WXMSW__)
-/* replicate the very useful C++14 make_unique for those build environments
-   that don't implement it yet.
-
-   typical useage:
-
-   auto p = std::make_unique<Myclass>(ctorArg1, ctorArg2, ... ctorArgN);
-   p->DoSomething();
-   auto q = std::make_unique<Myclass[]>(count);
-   q[0].DoSomethingElse();
-
-   The first hides naked NEW and DELETE from the source code.
-   The second hides NEW[] and DELETE[].  Both of course ensure destruction if
-   you don't use something like std::move(p) or q.release().  Both expressions require
-   that you identify the type only once, which is brief and less error prone.
-
-   (Whereas this omission of [] might invite a runtime error:
-   std::unique_ptr<Myclass> q { new Myclass[count] }; )
-
-   Some C++11 tricks needed here are (1) variadic argument lists and
-   (2) making the compile-time dispatch work correctly.  You can't have
-   a partially specialized template function, but you get the effect of that
-   by other metaprogramming means.
-*/
-
-namespace std {
-   // For overloading resolution
-   template <typename X> struct __make_unique_result {
-      using scalar_case = unique_ptr<X>;
-   };
-
-   // Partial specialization of the struct for array case
-   template <typename X> struct __make_unique_result<X[]> {
-      using array_case = unique_ptr<X[]>;
-      using element = X;
-   };
-
-   // Now the scalar version of unique_ptr
-   template<typename X, typename... Args> inline
-      typename __make_unique_result<X>::scalar_case
-      make_unique(Args&&... args)
-   {
-      return typename __make_unique_result<X>::scalar_case
-         { safenew X( forward<Args>(args)... ) };
-   }
-
-   // Now the array version of unique_ptr
-   // The compile-time dispatch trick is that the non-existence
-   // of the scalar_case type makes the above overload
-   // unavailable when the template parameter is explicit
-   template<typename X> inline
-      typename __make_unique_result<X>::array_case
-      make_unique(size_t count)
-   {
-      return typename __make_unique_result<X>::array_case
-         { safenew typename __make_unique_result<X>::element[count] };
-   }
-}
-#endif
 
 #endif // __AUDACITY_H__

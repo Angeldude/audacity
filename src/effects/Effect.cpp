@@ -40,6 +40,7 @@ greater use in future.
 #include "audacity/ConfigInterface.h"
 
 #include "../AudioIO.h"
+#include "../LabelTrack.h"
 #include "../Mix.h"
 #include "../Prefs.h"
 #include "../Project.h"
@@ -1731,6 +1732,7 @@ bool Effect::ProcessTrack(int count,
          return false;
       }
       wxASSERT(processed == curBlockSize);
+      wxUnusedVar(processed);
 
       // Bump to next input buffer position
       if (inputRemaining)
@@ -2128,6 +2130,93 @@ void Effect::AddToOutputTracks(Track *t)
    mOutputTracks->Add(t);
    mIMap.Add(NULL);
    mOMap.Add(t);
+}
+
+Effect::AddedAnalysisTrack::AddedAnalysisTrack(Effect *pEffect, const wxString &name)
+   : mpEffect(pEffect)
+{
+   std::unique_ptr < LabelTrack > pTrack{ pEffect->mFactory->NewLabelTrack() };
+   mpTrack = pTrack.get();
+   if (!name.empty())
+      pTrack->SetName(name);
+   pEffect->mTracks->Add(pTrack.release());
+}
+
+Effect::AddedAnalysisTrack::AddedAnalysisTrack(AddedAnalysisTrack &&that)
+{
+   mpEffect = that.mpEffect;
+   mpTrack = that.mpTrack;
+   that.Commit();
+}
+
+void Effect::AddedAnalysisTrack::Commit()
+{
+   mpEffect = nullptr;
+}
+
+Effect::AddedAnalysisTrack::~AddedAnalysisTrack()
+{
+   if (mpEffect) {
+      // not committed -- DELETE the label track
+      mpEffect->mTracks->Remove(mpTrack, true);
+   }
+}
+
+auto Effect::AddAnalysisTrack(const wxString &name) -> std::shared_ptr<AddedAnalysisTrack>
+{
+   return std::shared_ptr<AddedAnalysisTrack>
+   { safenew AddedAnalysisTrack{ this, name } };
+}
+
+Effect::ModifiedAnalysisTrack::ModifiedAnalysisTrack
+   (Effect *pEffect, const LabelTrack *pOrigTrack, const wxString &name)
+   : mpEffect(pEffect)
+   , mpOrigTrack(pOrigTrack)
+{
+   Track *newTrack{};
+
+   // copy LabelTrack here, so it can be undone on cancel
+   pOrigTrack->Copy(pOrigTrack->GetStartTime(), pOrigTrack->GetEndTime(), &newTrack);
+
+   mpTrack = static_cast<LabelTrack*>(newTrack);
+
+   // Why doesn't LabelTrack::Copy complete the job? :
+   mpTrack->SetOffset(pOrigTrack->GetStartTime());
+   if (!name.empty())
+      mpTrack->SetName(name);
+
+   // mpOrigTrack came from mTracks which we own but expose as const to subclasses
+   // So it's okay that we cast it back to const
+   pEffect->mTracks->Replace(const_cast<LabelTrack*>(mpOrigTrack), mpTrack, false);
+}
+
+Effect::ModifiedAnalysisTrack::ModifiedAnalysisTrack(ModifiedAnalysisTrack &&that)
+{
+   mpEffect = that.mpEffect;
+   mpTrack = that.mpTrack;
+   mpOrigTrack = that.mpOrigTrack;
+   that.Commit();
+}
+
+void Effect::ModifiedAnalysisTrack::Commit()
+{
+   mpEffect = nullptr;
+}
+
+Effect::ModifiedAnalysisTrack::~ModifiedAnalysisTrack()
+{
+   if (mpEffect) {
+      // not committed -- DELETE the label track
+      // mpOrigTrack came from mTracks which we own but expose as const to subclasses
+      // So it's okay that we cast it back to const
+      mpEffect->mTracks->Replace(mpTrack, const_cast<LabelTrack*>(mpOrigTrack), true);
+   }
+}
+
+auto Effect::ModifyAnalysisTrack
+   (const LabelTrack *pOrigTrack, const wxString &name) -> ModifiedAnalysisTrack
+{
+   return{ this, pOrigTrack, name };
 }
 
 // If bGoodResult, replace mTracks tracks with successfully processed mOutputTracks copies.
@@ -2553,7 +2642,7 @@ void Effect::Preview(bool dryOnly)
       SelectedTrackListOfKindIterator iter(Track::Wave, mTracks);
       WaveTrack *src = (WaveTrack *) iter.First();
       while (src) {
-         playbackTracks.Add(src);
+         playbackTracks.push_back(src);
          src = (WaveTrack *) iter.Next();
       }
       // Some effects (Paulstretch) may need to generate more
@@ -2740,13 +2829,13 @@ public:
    // wxWindow implementation
    // ============================================================================
 
-   virtual bool AcceptsFocus() const
+   bool AcceptsFocus() const override
    {
       return mAcceptsFocus;
    }
 
    // So that wxPanel is not included in Tab traversal, when required - see wxWidgets bug 15581
-   virtual bool AcceptsFocusFromKeyboard() const
+   bool AcceptsFocusFromKeyboard() const override
    {
       return mAcceptsFocus;
    }

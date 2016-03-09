@@ -85,8 +85,8 @@ public:
       , mTitlePrefix(titlePrefix)
    {;};
    ~wxTreebookExt(){;};
-   virtual int ChangeSelection(size_t n);
-   virtual int SetSelection(size_t n);
+   int ChangeSelection(size_t n) override;
+   int SetSelection(size_t n) override;
    const wxString mTitlePrefix;
 };
 
@@ -204,8 +204,6 @@ PrefsDialog::PrefsDialog
             wxDefaultSize,
             wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 , mFactories(factories)
-, mCategories(NULL)
-, mUniquePage(NULL)
 , mTitlePrefix(titlePrefix)
 {
    wxASSERT(factories.size() > 0);

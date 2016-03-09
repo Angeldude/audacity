@@ -40,24 +40,24 @@ class TimeTrack final : public Track {
    virtual ~TimeTrack();
 
    // Identifying the type of track
-   virtual int GetKind() const { return Time; }
+   int GetKind() const override { return Time; }
 
    // TimeTrack parameters
 
-   virtual double GetOffset() const { return 0.0; }
-   virtual void SetOffset(double /* t */) {}
+   double GetOffset() const override { return 0.0; }
+   void SetOffset(double /* t */) override {}
 
-   virtual double GetStartTime() const { return 0.0; }
-   virtual double GetEndTime() const { return 0.0; }
+   double GetStartTime() const override { return 0.0; }
+   double GetEndTime() const override { return 0.0; }
 
-   void Draw(wxDC & dc, const wxRect & r, const ZoomInfo &zoomInfo);
+   void Draw(wxDC & dc, const wxRect & r, const ZoomInfo &zoomInfo) const;
 
    // XMLTagHandler callback methods for loading and saving
 
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
-   virtual void HandleXMLEndTag(const wxChar *tag);
-   virtual XMLTagHandler *HandleXMLChild(const wxChar *tag);
-   virtual void WriteXML(XMLWriter &xmlFile);
+   bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) override;
+   void HandleXMLEndTag(const wxChar *tag) override;
+   XMLTagHandler *HandleXMLChild(const wxChar *tag) override;
+   void WriteXML(XMLWriter &xmlFile) override;
 
    // Lock and unlock the track: you must lock the track before
    // doing a copy and paste between projects.
@@ -68,6 +68,7 @@ class TimeTrack final : public Track {
    // Access the track's speed envelope
 
    Envelope *GetEnvelope() { return mEnvelope; }
+   const Envelope *GetEnvelope() const { return mEnvelope; }
 
    //Note: The meaning of this function has changed (December 2012)
    //Previously this function did something that was close to the opposite (but not entirely accurate).
@@ -81,7 +82,7 @@ class TimeTrack final : public Track {
     * @param t1 The ending time to calculate to
     * @return The relative length increase of the chosen segment from the original sound.
     */
-   double ComputeWarpFactor(double t0, double t1);
+   double ComputeWarpFactor(double t0, double t1) const;
    /** @brief Compute the duration (in seconds at playback) of the specified region of the track.
     *
     * Takes a region of the time track (specified by the unwarped time points in the project), and
@@ -91,7 +92,7 @@ class TimeTrack final : public Track {
     * @param t1 unwarped time to stop calculation at
     * @return the warped duration in seconds
     */
-   double ComputeWarpedLength(double t0, double t1);
+   double ComputeWarpedLength(double t0, double t1) const;
    /** @brief Compute how much unwarped time must have elapsed if length seconds of warped time has
     * elapsed
     *
@@ -99,7 +100,7 @@ class TimeTrack final : public Track {
     * @param length How many seconds of warped time went past.
     * @return The end point (in seconds from project start) as unwarped time
     */
-   double SolveWarpedLength(double t0, double length);
+   double SolveWarpedLength(double t0, double length) const;
 
    // Get/Set the speed-warping range, as percentage of original speed (e.g. 90%-110%)
 
@@ -131,7 +132,7 @@ class TimeTrack final : public Track {
     * @param orig the TimeTrack to copy from
     */
    void Init(const TimeTrack &orig);
-   virtual Track *Duplicate() const;
+   Track *Duplicate() const override;
 
    friend class TrackFactory;
 

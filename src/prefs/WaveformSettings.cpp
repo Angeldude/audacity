@@ -70,10 +70,8 @@ WaveformSettings& WaveformSettings::defaults()
    return instance;
 }
 
-bool WaveformSettings::Validate(bool quiet)
+bool WaveformSettings::Validate(bool /* quiet */)
 {
-   quiet;
-
    scaleType = ScaleType(
       std::max(0, std::min(int(stNumScaleTypes) - 1, int(scaleType)))
    );
@@ -151,7 +149,7 @@ const wxArrayString &WaveformSettings::GetScaleNames()
 {
    class ScaleNamesArray final : public TranslatableStringArray
    {
-      virtual void Populate()
+      void Populate() override
       {
          // Keep in correspondence with enum WaveTrack::WaveTrackDisplay:
          mContents.Add(_("Linear"));

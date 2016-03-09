@@ -136,10 +136,10 @@ class PROFILE_DLL_API Sequence final : public XMLTagHandler{
    // XMLTagHandler callback methods for loading and saving
    //
 
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
-   virtual void HandleXMLEndTag(const wxChar *tag);
-   virtual XMLTagHandler *HandleXMLChild(const wxChar *tag);
-   virtual void WriteXML(XMLWriter &xmlFile);
+   bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) override;
+   void HandleXMLEndTag(const wxChar *tag) override;
+   XMLTagHandler *HandleXMLChild(const wxChar *tag) override;
+   void WriteXML(XMLWriter &xmlFile) /* not override */;
 
    bool GetErrorOpening() { return mErrorOpening; }
 
@@ -222,12 +222,12 @@ class PROFILE_DLL_API Sequence final : public XMLTagHandler{
 
    BlockArray    mBlock;
    sampleFormat  mSampleFormat;
-   sampleCount   mNumSamples;
+   sampleCount   mNumSamples{ 0 };
 
    sampleCount   mMinSamples; // min samples per block
    sampleCount   mMaxSamples; // max samples per block
 
-   bool          mErrorOpening;
+   bool          mErrorOpening{ false };
 
    ///To block the Delete() method against the ODCalcSummaryTask::Update() method
    ODLock   mDeleteUpdateMutex;

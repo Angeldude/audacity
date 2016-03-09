@@ -119,10 +119,10 @@ class MyFLACFile final : public FLAC::Decoder::File
    bool                  mWasError;
    wxArrayString         mComments;
  protected:
-   virtual FLAC__StreamDecoderWriteStatus write_callback(const FLAC__Frame *frame,
-                                                         const FLAC__int32 * const buffer[]);
-   virtual void metadata_callback(const FLAC__StreamMetadata *metadata);
-   virtual void error_callback(FLAC__StreamDecoderErrorStatus status);
+   FLAC__StreamDecoderWriteStatus write_callback(const FLAC__Frame *frame,
+                                                         const FLAC__int32 * const buffer[]) override;
+   void metadata_callback(const FLAC__StreamMetadata *metadata) override;
+   void error_callback(FLAC__StreamDecoderErrorStatus status) override;
 };
 
 
@@ -296,7 +296,7 @@ ImportFileHandle *FLACImportPlugin::Open(const wxString &filename)
    int cnt;
    wxFile binaryFile;
    if (!binaryFile.Open(filename)) {
-      return false; // File not found
+      return nullptr; // File not found
    }
 
 #ifdef USE_LIBID3TAG
@@ -313,7 +313,7 @@ ImportFileHandle *FLACImportPlugin::Open(const wxString &filename)
 
    if (cnt == wxInvalidOffset || strncmp(buf, FLAC_HEADER, 4) != 0) {
       // File is not a FLAC file
-      return false;
+      return nullptr;
    }
 
    // Open the file for import
@@ -322,7 +322,7 @@ ImportFileHandle *FLACImportPlugin::Open(const wxString &filename)
    bool success = handle->Init();
    if (!success) {
       delete handle;
-      return NULL;
+      return nullptr;
    }
 
    return handle;
@@ -476,6 +476,7 @@ int FLACImportFileHandle::Import(TrackFactory *trackFactory,
       if(!useOD)
          res = (mFile->process_until_end_of_stream() != 0);
    #endif
+      wxUnusedVar(res);
 
    //add the task to the ODManager
    if(useOD)

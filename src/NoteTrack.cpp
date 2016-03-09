@@ -469,7 +469,7 @@ bool NoteTrack::Cut(double t0, double t1, Track **dest){
    return true;
 }
 
-bool NoteTrack::Copy(double t0, double t1, Track **dest){
+bool NoteTrack::Copy(double t0, double t1, Track **dest) const {
 
    //dest goes onto clipboard
    *dest = NULL; // This is redundant and matches WaveTrack::Copy
@@ -520,7 +520,7 @@ bool NoteTrack::Clear(double t0, double t1)
    return true;
 }
 
-bool NoteTrack::Paste(double t, Track *src)
+bool NoteTrack::Paste(double t, const Track *src)
 {
    // Paste inserts src at time t. If src has a positive offset,
    // the offset is treated as silence which is also inserted. If

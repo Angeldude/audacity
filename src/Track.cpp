@@ -132,7 +132,7 @@ Track::~Track()
 }
 
 
-const TrackListNode *Track::GetNode()
+const TrackListNode *Track::GetNode() const
 {
    return mNode;
 }
@@ -713,6 +713,49 @@ TrackList::TrackList(bool destructorDeletesTracks)
    tail = NULL;
 }
 
+TrackList::TrackList(const TrackList &that)
+{
+   DoAssign(that);
+}
+
+TrackList& TrackList::operator= (const TrackList &that)
+{
+   if (this != &that) {
+      this->Clear(mDestructorDeletesTracks);
+      DoAssign(that);
+   }
+   return *this;
+}
+
+TrackList::TrackList(TrackList &&that)
+{
+   Swap(that);
+}
+
+TrackList &TrackList::operator= (TrackList &&that)
+{
+   if (this != &that) {
+      this->Clear(mDestructorDeletesTracks);
+      Swap(that);
+   }
+   return *this;
+}
+
+void TrackList::DoAssign(const TrackList &that)
+{
+   mDestructorDeletesTracks = true;
+   TrackListConstIterator it(&that);
+   for (const Track *track = it.First(); track; track = it.Next())
+      Add(track->Duplicate());
+}
+
+void TrackList::Swap(TrackList &that)
+{
+   std::swap(mDestructorDeletesTracks, that.mDestructorDeletesTracks);
+   std::swap(head, that.head);
+   std::swap(tail, that.tail);
+}
+
 TrackList::~TrackList()
 {
    Clear(mDestructorDeletesTracks);
@@ -840,7 +883,8 @@ void TrackList::AddToHead(Track * t)
 void TrackList::Replace(Track * t, Track * with, bool deletetrack)
 {
    if (t && with) {
-      TrackListNode *node = (TrackListNode *) t->GetNode();
+      TrackListNode *node =
+         const_cast<TrackListNode *>(t->GetNode());
 
       t->SetOwner(NULL, NULL);
       if (deletetrack) {
@@ -1024,7 +1068,7 @@ bool TrackList::CanMoveDown(Track * t) const
 // The complication is that the tracks are stored in a single
 // linked list, and pairs of tracks are marked only by a flag
 // in one of the tracks.
-void TrackList::Swap(TrackListNode * s1, TrackListNode * s2)
+void TrackList::SwapNodes(TrackListNode * s1, TrackListNode * s2)
 {
    Track *link;
    Track *source[4];
@@ -1091,7 +1135,7 @@ bool TrackList::MoveUp(Track * t)
    if (t) {
       Track *p = GetPrev(t, true);
       if (p) {
-         Swap((TrackListNode *)p->GetNode(), (TrackListNode *)t->GetNode());
+         SwapNodes((TrackListNode *)p->GetNode(), (TrackListNode *)t->GetNode());
          return true;
       }
    }
@@ -1104,7 +1148,7 @@ bool TrackList::MoveDown(Track * t)
    if (t) {
       Track *n = GetNext(t, true);
       if (n) {
-         Swap((TrackListNode *)t->GetNode(), (TrackListNode *)n->GetNode());
+         SwapNodes((TrackListNode *)t->GetNode(), (TrackListNode *)n->GetNode());
          return true;
       }
    }
@@ -1152,15 +1196,20 @@ TimeTrack *TrackList::GetTimeTrack()
    return NULL;
 }
 
-int TrackList::GetNumExportChannels(bool selectionOnly)
+const TimeTrack *TrackList::GetTimeTrack() const
+{
+   return const_cast<TrackList*>(this)->GetTimeTrack();
+}
+
+int TrackList::GetNumExportChannels(bool selectionOnly) const
 {
    /* counters for tracks panned different places */
    int numLeft = 0;
    int numRight = 0;
    int numMono = 0;
    /* track iteration kit */
-   Track *tr;
-   TrackListIterator iter;
+   const Track *tr;
+   TrackListConstIterator iter;
 
    for (tr = iter.First(this); tr != NULL; tr = iter.Next()) {
 
@@ -1213,48 +1262,34 @@ int TrackList::GetNumExportChannels(bool selectionOnly)
    return 1;
 }
 
-void TrackList::GetWaveTracks(bool selectionOnly,
-                              int *num, WaveTrack ***tracks)
-{
-   int i;
-   *num = 0;
+namespace {
+   template<typename Array>
+   Array GetWaveTracks(TrackListNode *p, bool selectionOnly, bool includeMuted)
+   {
+      Array waveTrackArray;
 
-   TrackListNode *p = head;
-   while (p) {
-      if (p->t->GetKind() == Track::Wave && !(p->t->GetMute()) &&
-          (p->t->GetSelected() || !selectionOnly)) {
-         (*num)++;
-      }
-      p = p->next;
-   }
+      while (p) {
+         if (p->t->GetKind() == Track::Wave &&
+            (includeMuted || !p->t->GetMute()) &&
+            (p->t->GetSelected() || !selectionOnly)) {
+            waveTrackArray.push_back(static_cast<WaveTrack*>(p->t));
+         }
 
-   *tracks = new WaveTrack*[*num];
-   p = head;
-   i = 0;
-   while (p) {
-      if (p->t->GetKind() == Track::Wave && !(p->t->GetMute()) &&
-          (p->t->GetSelected() || !selectionOnly)) {
-         (*tracks)[i++] = (WaveTrack *)p->t;
+         p = p->next;
       }
-      p = p->next;
+
+      return waveTrackArray;
    }
 }
 
-WaveTrackArray TrackList::GetWaveTrackArray(bool selectionOnly)
+WaveTrackArray TrackList::GetWaveTrackArray(bool selectionOnly, bool includeMuted)
 {
-   WaveTrackArray waveTrackArray;
+   return GetWaveTracks<WaveTrackArray>(head, selectionOnly, includeMuted);
+}
 
-   TrackListNode *p = head;
-   while (p) {
-      if (p->t->GetKind() == Track::Wave &&
-          (p->t->GetSelected() || !selectionOnly)) {
-         waveTrackArray.Add((WaveTrack*)p->t);
-      }
-
-      p = p->next;
-   }
-
-   return waveTrackArray;
+WaveTrackConstArray TrackList::GetWaveTrackConstArray(bool selectionOnly, bool includeMuted) const
+{
+   return GetWaveTracks<WaveTrackConstArray>(head, selectionOnly, includeMuted);
 }
 
 #if defined(USE_MIDI)

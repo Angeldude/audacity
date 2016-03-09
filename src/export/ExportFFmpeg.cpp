@@ -589,6 +589,12 @@ static int encode_audio(AVCodecContext *avctx, AVPacket *pkt, int16_t *audio_sam
             case AV_SAMPLE_FMT_FLTP:
                ((float*)(frame->data[ch]))[i] = audio_samples[ch + i*avctx->channels] / 32767.;
                break;
+            case AV_SAMPLE_FMT_NONE:
+            case AV_SAMPLE_FMT_DBL:
+            case AV_SAMPLE_FMT_DBLP:
+            case AV_SAMPLE_FMT_NB:
+               wxASSERT(false);
+               break;
             }
          }
       }
@@ -811,7 +817,7 @@ int ExportFFmpeg::Export(AudacityProject *project,
       return false;
    }
    mName = fName;
-   TrackList *tracks = project->GetTracks();
+   const TrackList *tracks = project->GetTracks();
    bool ret = true;
 
    if (mSubFormat >= FMT_LAST) return false;
@@ -824,15 +830,13 @@ int ExportFFmpeg::Export(AudacityProject *project,
    if (!ret) return false;
 
    int pcmBufferSize = 1024;
-   int numWaveTracks;
-   WaveTrack **waveTracks;
-   tracks->GetWaveTracks(selectionOnly, &numWaveTracks, &waveTracks);
-   Mixer *mixer = CreateMixer(numWaveTracks, waveTracks,
+   const WaveTrackConstArray waveTracks =
+      tracks->GetWaveTrackConstArray(selectionOnly, false);
+   Mixer *mixer = CreateMixer(waveTracks,
       tracks->GetTimeTrack(),
       t0, t1,
       channels, pcmBufferSize, true,
       mSampleRate, int16Sample, true, mixerSpec);
-   delete[] waveTracks;
 
    int updateResult = eProgressSuccess;
    {

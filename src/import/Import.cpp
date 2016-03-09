@@ -35,6 +35,10 @@ and ImportLOF.cpp.
 
 
 
+#include "../Audacity.h"
+#include "Import.h"
+#include "ImportPlugin.h"
+
 #include <wx/textctrl.h>
 #include <wx/msgdlg.h>
 #include <wx/string.h>
@@ -44,11 +48,8 @@ and ImportLOF.cpp.
 #include <wx/arrimpl.cpp>
 #include <wx/listimpl.cpp>
 #include "../ShuttleGui.h"
-#include "../Audacity.h"
 #include "../Project.h"
 
-#include "Import.h"
-#include "ImportPlugin.h"
 #include "ImportPCM.h"
 #include "ImportMP3.h"
 #include "ImportOGG.h"
@@ -137,8 +138,13 @@ void Importer::GetSupportedImportFormats(FormatList *formatList)
    while(importPluginNode)
    {
       ImportPlugin *importPlugin = importPluginNode->GetData();
+#ifdef __AUDACITY_OLD_STD__
+      formatList->push_back(Format{importPlugin->GetPluginFormatDescription(),
+                               importPlugin->GetSupportedExtensions()});
+#else
       formatList->emplace_back(importPlugin->GetPluginFormatDescription(),
                                importPlugin->GetSupportedExtensions());
+#endif
       importPluginNode = importPluginNode->GetNext();
    }
 }

@@ -63,6 +63,7 @@
 
 #include "Audacity.h"
 #include "DirManager.h"
+#include "MemoryX.h"
 
 #include <time.h> // to use time() for srand()
 
@@ -197,7 +198,6 @@ static int RecursivelyEnumerate(wxString dirPath,
    return count;
 }
 
-
 static int RecursivelyEnumerateWithProgress(wxString dirPath,
                                              wxArrayString& filePathArray, // output: all files in dirPath tree
                                              wxString dirspec,
@@ -205,19 +205,16 @@ static int RecursivelyEnumerateWithProgress(wxString dirPath,
                                              int progress_count,
                                              const wxChar* message)
 {
-   ProgressDialog *progress = NULL;
+   Maybe<ProgressDialog> progress{};
 
    if (message)
-      progress = new ProgressDialog(_("Progress"), message);
+      progress.create( _("Progress"), message );
 
    int count = RecursivelyEnumerate(
                   dirPath, filePathArray, dirspec,
                   bFiles, bDirs,
                   progress_count, 0,
-                  progress);
-
-   if (progress)
-      delete progress;
+                  progress.get());
 
    return count;
 }
@@ -291,10 +288,10 @@ static void RecursivelyRemove(wxArrayString& filePathArray, int count,
                               bool bFiles, bool bDirs,
                               const wxChar* message = NULL)
 {
-   ProgressDialog *progress = NULL;
+   Maybe<ProgressDialog> progress{};
 
    if (message)
-      progress = new ProgressDialog(_("Progress"), message);
+      progress.create( _("Progress"), message );
 
    for (int i = 0; i < count; i++) {
       const wxChar *file = filePathArray[i].c_str();
@@ -305,9 +302,6 @@ static void RecursivelyRemove(wxArrayString& filePathArray, int count,
       if (progress)
          progress->Update(i, count);
    }
-
-   if (progress)
-      delete progress;
 }
 
 
@@ -590,7 +584,9 @@ wxFileName DirManager::MakeBlockFilePath(const wxString &value) {
       dir.AppendDir(middir);
 
       if(!dir.DirExists() && !dir.Mkdir(0777,wxPATH_MKDIR_FULL))
+      { // need braces to avoid compiler warning about ambiguous else, see the macro
          wxLogSysError(_("mkdir in DirManager::MakeBlockFilePath failed."));
+      }
    }
    return dir;
 }
@@ -1226,8 +1222,10 @@ bool DirManager::EnsureSafeFilename(wxFileName fName)
 
    wxFile testFile(renamedFileName.GetFullPath(), wxFile::write);
    if (!testFile.IsOpened()) {
-      wxLogSysError(_("Unable to open/create test file."),
+      { // need braces to avoid compiler warning about ambiguous else, see the macro
+         wxLogSysError(_("Unable to open/create test file."),
                     renamedFileName.GetFullPath().c_str());
+      }
       return false;
    }
 
@@ -1236,8 +1234,10 @@ bool DirManager::EnsureSafeFilename(wxFileName fName)
 
    if (!wxRemoveFile(renamedFileName.GetFullPath())) {
       /* i18n-hint: %s is the name of a file.*/
-      wxLogSysError(_("Unable to remove '%s'."),
+      { // need braces to avoid compiler warning about ambiguous else, see the macro
+         wxLogSysError(_("Unable to remove '%s'."),
                     renamedFileName.GetFullPath().c_str());
+      }
       return false;
    }
 

@@ -35,7 +35,7 @@ Track classes.
 #include <float.h>
 #include <math.h>
 #include <algorithm>
-#include <memory>
+#include "MemoryX.h"
 
 #include "float_cast.h"
 
@@ -108,9 +108,6 @@ WaveTrack::WaveTrack(DirManager *projDirManager, sampleFormat format, double rat
    mDisplayMin = -1.0;
    mDisplayMax = 1.0;
    mSpectrumMin = mSpectrumMax = -1; // so values will default to settings
-   mDisplayNumLocations = 0;
-   mDisplayLocations = NULL;
-   mDisplayNumLocationsAllocated = 0;
    mLastScaleType = -1;
    mLastdBRange = -1;
    mAutoSaveIdent = 0;
@@ -150,9 +147,7 @@ void WaveTrack::Init(const WaveTrack &orig)
    mDisplayMax = orig.mDisplayMax;
    mSpectrumMin = orig.mSpectrumMin;
    mSpectrumMax = orig.mSpectrumMax;
-   mDisplayNumLocations = 0;
-   mDisplayLocations = NULL;
-   mDisplayNumLocationsAllocated = 0;
+   mDisplayLocationsCache.clear();
 }
 
 void WaveTrack::Merge(const Track &orig)
@@ -181,8 +176,6 @@ WaveTrack::~WaveTrack()
    for (WaveClipList::compatibility_iterator it=GetClipIterator(); it; it=it->GetNext())
       delete it->GetData();
    mClips.Clear();
-   if (mDisplayLocations)
-      delete [] mDisplayLocations;
 
    delete mpSpectrumSettings;
    delete mpWaveformSettings;
@@ -290,12 +283,12 @@ WaveTrack::ValidateWaveTrackDisplay(WaveTrackDisplay display)
    }
 }
 
-void WaveTrack::SetLastScaleType()
+void WaveTrack::SetLastScaleType() const
 {
    mLastScaleType = GetWaveformSettings().scaleType;
 }
 
-void WaveTrack::SetLastdBRange()
+void WaveTrack::SetLastdBRange() const
 {
    mLastdBRange = GetWaveformSettings().dBRange;
 }
@@ -306,7 +299,7 @@ void WaveTrack::GetDisplayBounds(float *min, float *max) const
    *max = mDisplayMax;
 }
 
-void WaveTrack::SetDisplayBounds(float min, float max)
+void WaveTrack::SetDisplayBounds(float min, float max) const
 {
    mDisplayMin = min;
    mDisplayMax = max;
@@ -356,7 +349,7 @@ void WaveTrack::GetSpectrumBounds(float *min, float *max) const
    }
 }
 
-void WaveTrack::SetSpectrumBounds(float min, float max)
+void WaveTrack::SetSpectrumBounds(float min, float max) const
 {
    mSpectrumMin = min;
    mSpectrumMax = max;
@@ -558,6 +551,7 @@ bool WaveTrack::SplitCut(double t0, double t1, Track **dest)
    return SplitDelete(t0, t1);
 }
 
+#if 0
 bool WaveTrack::CutAndAddCutLine(double t0, double t1, Track **dest)
 {
    if (t1 < t0)
@@ -568,6 +562,7 @@ bool WaveTrack::CutAndAddCutLine(double t0, double t1, Track **dest)
       return false;
    return ClearAndAddCutLine(t0, t1);
 }
+#endif
 
 
 
@@ -628,7 +623,7 @@ bool WaveTrack::Trim (double t0, double t1)
 
 
 
-bool WaveTrack::Copy(double t0, double t1, Track **dest)
+bool WaveTrack::Copy(double t0, double t1, Track **dest) const
 {
    *dest = NULL;
 
@@ -641,9 +636,9 @@ bool WaveTrack::Copy(double t0, double t1, Track **dest)
 
    WaveClipList::compatibility_iterator it;
 
-   for (it=GetClipIterator(); it; it=it->GetNext())
+   for (it = const_cast<WaveTrack*>(this)->GetClipIterator(); it; it = it->GetNext())
    {
-      WaveClip *clip = it->GetData();
+      const WaveClip *clip = it->GetData();
 
       if (t0 <= clip->GetStartTime() && t1 >= clip->GetEndTime())
       {
@@ -716,6 +711,11 @@ bool WaveTrack::Copy(double t0, double t1, Track **dest)
    *dest = newTrack;
 
    return true;
+}
+
+bool WaveTrack::CopyNonconst(double t0, double t1, Track **dest)
+{
+   return Copy(t0, t1, dest);
 }
 
 bool WaveTrack::Clear(double t0, double t1)
@@ -807,7 +807,7 @@ void WaveTrack::SetWaveformSettings(WaveformSettings *pSettings)
 //
 bool WaveTrack::ClearAndPaste(double t0, // Start of time to clear
                               double t1, // End of time to clear
-                              Track *src, // What to paste
+                              const Track *src, // What to paste
                               bool preserve, // Whether to reinsert splits/cuts
                               bool merge, // Whether to remove 'extra' splits
                               TimeWarper *effectWarper // How does time change
@@ -910,6 +910,7 @@ bool WaveTrack::ClearAndPaste(double t0, // Start of time to clear
                   if (i > 0) {
                      bool bResult = MergeClips(GetClipIndex(clips[i - 1]), GetClipIndex(clip));
                      wxASSERT(bResult); // TO DO: Actually handle this.
+                     wxUnusedVar(bResult);
                   }
                   break;
                }
@@ -929,6 +930,7 @@ bool WaveTrack::ClearAndPaste(double t0, // Start of time to clear
                   if (i < clips.GetCount() - 1) {
                      bool bResult = MergeClips(GetClipIndex(clip), GetClipIndex(clips[i + 1]));
                      wxASSERT(bResult); // TO DO: Actually handle this.
+                     wxUnusedVar(bResult);
                   }
                   break;
                }
@@ -1168,9 +1170,11 @@ bool WaveTrack::SyncLockAdjust(double oldT1, double newT1)
 
          bool bResult = tmp->InsertSilence(0.0, newT1 - oldT1);
          wxASSERT(bResult); // TO DO: Actually handle this.
+         wxUnusedVar(bResult);
          tmp->Flush();
          bResult = Paste(oldT1, tmp);
          wxASSERT(bResult); // TO DO: Actually handle this.
+         wxUnusedVar(bResult);
          delete tmp;
       }
    }
@@ -1182,7 +1186,7 @@ bool WaveTrack::SyncLockAdjust(double oldT1, double newT1)
    return true;
 }
 
-bool WaveTrack::Paste(double t0, Track *src)
+bool WaveTrack::Paste(double t0, const Track *src)
 {
    bool editClipCanMove = true;
    gPrefs->Read(wxT("/GUI/EditClipCanMove"), &editClipCanMove);
@@ -1239,6 +1243,7 @@ bool WaveTrack::Paste(double t0, Track *src)
             Cut(t0, GetEndTime()+1.0/mRate, &tmp);
             bool bResult = Paste(t0 + insertDuration, tmp);
             wxASSERT(bResult); // TO DO: Actually handle this.
+            wxUnusedVar(bResult);
             delete tmp;
          }
       } else
@@ -1543,12 +1548,14 @@ bool WaveTrack::Join(double t0, double t1)
          //printf("Adding %.6f seconds of silence\n");
          bool bResult = newClip->InsertSilence(t, addedSilence);
          wxASSERT(bResult); // TO DO: Actually handle this.
+         wxUnusedVar(bResult);
          t += addedSilence;
       }
 
       //printf("Pasting at %.6f\n", t);
       bool bResult = newClip->Paste(t, clip);
       wxASSERT(bResult); // TO DO: Actually handle this.
+      wxUnusedVar(bResult);
       t = newClip->GetEndTime();
 
       mClips.DeleteObject(clip);
@@ -2421,40 +2428,33 @@ bool WaveTrack::SplitAt(double t)
    return true;
 }
 
-void WaveTrack::UpdateLocationsCache()
+void WaveTrack::UpdateLocationsCache() const
 {
    unsigned int i;
    WaveClipArray clips;
 
    FillSortedClipArray(clips);
 
-   mDisplayNumLocations = 0;
+   mDisplayLocationsCache.clear();
 
    // Count number of display locations
+   int num = 0;
    for (i = 0; i < clips.GetCount(); i++)
    {
       WaveClip* clip = clips.Item(i);
 
-      mDisplayNumLocations += clip->GetCutLines()->GetCount();
+      num += clip->GetCutLines()->GetCount();
 
       if (i > 0 && fabs(clips.Item(i - 1)->GetEndTime() -
                   clip->GetStartTime()) < WAVETRACK_MERGE_POINT_TOLERANCE)
-         mDisplayNumLocations++;
+         ++num;
    }
 
-   if (mDisplayNumLocations == 0)
+   if (num == 0)
       return;
 
    // Alloc necessary number of display locations
-   if (mDisplayNumLocations > mDisplayNumLocationsAllocated)
-   {
-      // Only realloc, if we need more space than before. Otherwise
-      // just use block from before.
-      if (mDisplayLocations)
-         delete[] mDisplayLocations;
-      mDisplayLocations = new Location[mDisplayNumLocations];
-      mDisplayNumLocationsAllocated = mDisplayNumLocations;
-   }
+   mDisplayLocationsCache.reserve(num);
 
    // Add all display locations to cache
    int curpos = 0;
@@ -2468,9 +2468,10 @@ void WaveTrack::UpdateLocationsCache()
            it = it->GetNext())
       {
          // Add cut line expander point
-         mDisplayLocations[curpos].typ = WaveTrackLocation::locationCutLine;
-         mDisplayLocations[curpos].pos =
-            clip->GetOffset() + it->GetData()->GetOffset();
+         mDisplayLocationsCache.push_back(WaveTrackLocation{
+            clip->GetOffset() + it->GetData()->GetOffset(),
+            WaveTrackLocation::locationCutLine
+         });
          curpos++;
       }
 
@@ -2482,16 +2483,18 @@ void WaveTrack::UpdateLocationsCache()
                                           < WAVETRACK_MERGE_POINT_TOLERANCE)
          {
             // Add merge point
-            mDisplayLocations[curpos].typ = WaveTrackLocation::locationMergePoint;
-            mDisplayLocations[curpos].pos = clips.Item(i-1)->GetEndTime();
-            mDisplayLocations[curpos].clipidx1 = mClips.IndexOf(previousClip);
-            mDisplayLocations[curpos].clipidx2 = mClips.IndexOf(clip);
+            mDisplayLocationsCache.push_back(WaveTrackLocation{
+               clips.Item(i - 1)->GetEndTime(),
+               WaveTrackLocation::locationMergePoint,
+               mClips.IndexOf(previousClip),
+               mClips.IndexOf(clip)
+            });
             curpos++;
          }
       }
    }
 
-   wxASSERT(curpos == mDisplayNumLocations);
+   wxASSERT(curpos == num);
 }
 
 // Expand cut line (that is, re-insert audio, then DELETE audio saved in cut line)
@@ -2610,11 +2613,12 @@ static int SortClipArrayCmpFunc(WaveClip** clip1, WaveClip** clip2)
       return 1;
 }
 
-void WaveTrack::FillSortedClipArray(WaveClipArray& clips)
+void WaveTrack::FillSortedClipArray(WaveClipArray& clips) const
 {
    clips.Empty();
 
-   for (WaveClipList::compatibility_iterator it=GetClipIterator(); it; it=it->GetNext())
+   for (WaveClipList::compatibility_iterator it =
+      const_cast<WaveTrack*>(this)->GetClipIterator(); it; it=it->GetNext())
       clips.Add(it->GetData());
 
    clips.Sort(SortClipArrayCmpFunc);

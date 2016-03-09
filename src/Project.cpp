@@ -453,7 +453,7 @@ bool ImportXMLTagHandler::HandleXMLTag(const wxChar *tag, const wxChar **attrs)
 
    WaveTrackArray trackArray;
    mProject->Import(strAttr, &trackArray);
-   if (trackArray.IsEmpty())
+   if (trackArray.empty())
       return false;
 
    // Handle other attributes, now that we have the tracks.
@@ -461,7 +461,7 @@ bool ImportXMLTagHandler::HandleXMLTag(const wxChar *tag, const wxChar **attrs)
    const wxChar** pAttr;
    bool bSuccess = true;
 
-   for (size_t i = 0; i < trackArray.GetCount(); i++)
+   for (size_t i = 0; i < trackArray.size(); i++)
    {
       // Most of the "import" tag attributes are the same as for "wavetrack" tags,
       // so apply them via WaveTrack::HandleXMLTag().
@@ -789,8 +789,6 @@ AudacityProject::AudacityProject(wxWindow * parent, wxWindowID id,
                                  const wxPoint & pos,
                                  const wxSize & size)
    : wxFrame(parent, id, wxT("Audacity"), pos, size),
-     mRegionSave(),
-     mLastPlayMode(normalPlay),
      mRate((double) gPrefs->Read(wxT("/SamplingRate/DefaultProjectSampleRate"), AudioIO::GetOptimalSupportedSampleRate())),
      mDefaultFormat((sampleFormat) gPrefs->
            Read(wxT("/SamplingRate/DefaultProjectSampleFormat"), floatSample)),
@@ -799,43 +797,7 @@ AudacityProject::AudacityProject(wxWindow * parent, wxWindowID id,
      mFrequencySelectionFormatName(gPrefs->Read(wxT("/FrequencySelectionFormatName"), wxT(""))),
      mBandwidthSelectionFormatName(gPrefs->Read(wxT("/BandwidthSelectionFormatName"), wxT(""))),
      mUndoManager(safenew UndoManager),
-     mDirty(false),
-     mRuler(NULL),
-     mTrackPanel(NULL),
-     mTrackFactory(NULL),
-     mAutoScrolling(false),
-     mActive(true),
-     mHistoryWindow(NULL),
-     mLyricsWindow(NULL),
-     mMixerBoard(NULL),
-     mMixerBoardFrame(NULL),
-     mFreqWindow(NULL),
-     mContrastDialog(NULL),
-     mAliasMissingWarningDialog(NULL),
-     mPlaybackMeter(NULL),
-     mCaptureMeter(NULL),
-     mToolManager(NULL),
-     mbBusyImporting(false),
-     mAudioIOToken(-1),
-     mIsDeleting(false),
-     mTracksFitVerticallyZoomed(false),  //lda
-     mShowId3Dialog(true),               //lda
-     mLastFocusedWindow(NULL),
-     mKeyboardCaptureHandler(NULL),
-     mImportXMLTagHandler(NULL),
-     mAutoSaving(false),
-     mIsRecovered(false),
-     mIsCapturing(false),
-     mRecordingRecoveryHandler(NULL),
-     mImportedDependencies(false),
-     mWantSaveCompressed(false),
-     mLastEffect(wxEmptyString),
-     mTimerRecordCanceled(false),
-     mMenuClose(false),
-     mShownOnce(false),
-     mbInitializingScrollbar(false),
-     mViewInfo(0.0, 1.0, ZoomInfo::GetDefaultZoom()),
-     mIsBeingDeleted(false)
+     mViewInfo(0.0, 1.0, ZoomInfo::GetDefaultZoom())
 {
    // Note that the first field of the status bar is a dummy, and it's width is set
    // to zero latter in the code. This field is needed for wxWidgets 2.8.12 because
@@ -3860,7 +3822,7 @@ bool AudacityProject::Import(const wxString &fileName, WaveTrackArray* pTrackArr
    if (pTrackArray) {
       for (int i = 0; i < numTracks; i++) {
          if (newTracks[i]->GetKind() == Track::Wave) {
-            pTrackArray->Add((WaveTrack *)newTracks[i]);
+            pTrackArray->push_back(static_cast<WaveTrack *>(newTracks[i]));
          }
       }
    }
@@ -4658,6 +4620,7 @@ void AudacityProject::EditClipboardByLabel( EditDestFunction action )
 
                   bool bResult = merged->Paste( 0.0 , dest );
                   wxASSERT(bResult); // TO DO: Actually handle this.
+                  wxUnusedVar(bResult);
                   delete dest;
                }
             }

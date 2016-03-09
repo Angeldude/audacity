@@ -184,6 +184,7 @@ bool LabelTrack::Clear(double b, double e)
    return true;
 }
 
+#if 0
 //used when we want to use clear only on the labels
 bool LabelTrack::SplitDelete(double b, double e)
 {
@@ -204,6 +205,8 @@ bool LabelTrack::SplitDelete(double b, double e)
 
    return true;
 }
+#endif
+
 void LabelTrack::ShiftLabelsOnInsert(double length, double pt)
 {
    for (unsigned int i=0;i<mLabels.GetCount();i++) {
@@ -312,7 +315,7 @@ void LabelTrack::ResetFont()
 /// take priority over the ones earlier, so because centering
 /// is the first thing we do, it's the first thing we lose if
 /// we can't do everything we want to.
-void LabelTrack::ComputeTextPosition(const wxRect & r, int index)
+void LabelTrack::ComputeTextPosition(const wxRect & r, int index) const
 {
    // xExtra is extra space
    // between the text and the endpoints.
@@ -454,7 +457,7 @@ void LabelTrack::ComputeTextPosition(const wxRect & r, int index)
 /// ComputeLayout determines which row each label
 /// should be placed on, and reserves space for it.
 /// Function assumes that the labels are sorted.
-void LabelTrack::ComputeLayout(const wxRect & r, const ZoomInfo &zoomInfo)
+void LabelTrack::ComputeLayout(const wxRect & r, const ZoomInfo &zoomInfo) const
 {
    int i;
    int iRow;
@@ -707,7 +710,7 @@ void LabelStruct::DrawHighlight( wxDC & dc, int xPos1, int xPos2, int charHeight
       dc.DrawRectangle(xPos2-1, y-charHeight/2, xPos1-xPos2+1, charHeight);
 }
 
-void LabelStruct::getXPos( wxDC & dc, int * xPos1, int cursorPos)
+void LabelStruct::getXPos( wxDC & dc, int * xPos1, int cursorPos) const
 {
    *xPos1 = xText;
    if( cursorPos > 0)
@@ -741,7 +744,7 @@ bool LabelTrack::CalcCursorX(wxWindow * parent, int * x)
 ///   @param  r  the LabelTrack rectangle.
 void LabelTrack::Draw(wxDC & dc, const wxRect & r,
    const SelectedRegion &selectedRegion,
-   const ZoomInfo &zoomInfo)
+   const ZoomInfo &zoomInfo) const
 {
    if(msFont.Ok())
       dc.SetFont(msFont);
@@ -878,7 +881,7 @@ void LabelTrack::Draw(wxDC & dc, const wxRect & r,
 /// Set the cursor position according to x position of mouse
 /// uses GetTextExtent to find the character position
 /// corresponding to the x pixel position.
-void LabelTrack::SetCurrentCursorPosition(wxDC & dc, int xPos)
+void LabelTrack::SetCurrentCursorPosition(wxDC & dc, int xPos) const
 {
    // A bool indicator to see if set the cursor position or not
    bool finished = false;
@@ -922,7 +925,7 @@ void LabelTrack::SetCurrentCursorPosition(wxDC & dc, int xPos)
    }
 }
 
-void LabelTrack::calculateFontHeight(wxDC & dc)
+void LabelTrack::calculateFontHeight(wxDC & dc) const
 {
    int charDescent;
    int charLeading;
@@ -1267,7 +1270,7 @@ void LabelStruct::MoveLabel( int iEdge, double fNewTime)
 }
 
 LabelStruct::TimeRelations LabelStruct::RegionRelation(
-      double reg_t0, double reg_t1, LabelTrack * WXUNUSED(parent))
+      double reg_t0, double reg_t1, const LabelTrack * WXUNUSED(parent))
 {
    bool retainLabels = false;
 
@@ -2405,6 +2408,7 @@ bool LabelTrack::Cut(double t0, double t1, Track **dest)
    return true;
 }
 
+#if 0
 bool LabelTrack::SplitCut(double t0, double t1, Track ** dest)
 {
    // SplitCut() == Copy() + SplitDelete()
@@ -2416,8 +2420,9 @@ bool LabelTrack::SplitCut(double t0, double t1, Track ** dest)
 
    return true;
 }
+#endif
 
-bool LabelTrack::Copy(double t0, double t1, Track ** dest)
+bool LabelTrack::Copy(double t0, double t1, Track ** dest) const
 {
    *dest = new LabelTrack(GetDirManager());
    int len = mLabels.Count();
@@ -2466,7 +2471,7 @@ bool LabelTrack::Copy(double t0, double t1, Track ** dest)
 }
 
 
-bool LabelTrack::PasteOver(double t, Track * src)
+bool LabelTrack::PasteOver(double t, const Track * src)
 {
    if (src->GetKind() != Track::Label)
       return false;
@@ -2492,7 +2497,7 @@ bool LabelTrack::PasteOver(double t, Track * src)
    return true;
 }
 
-bool LabelTrack::Paste(double t, Track *src)
+bool LabelTrack::Paste(double t, const Track *src)
 {
    if (src->GetKind() != Track::Label)
       return false;

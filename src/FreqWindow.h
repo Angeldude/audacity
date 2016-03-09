@@ -11,7 +11,7 @@
 #ifndef __AUDACITY_FREQ_WINDOW__
 #define __AUDACITY_FREQ_WINDOW__
 
-#include <memory>
+#include "MemoryX.h"
 #include <vector>
 #include <wx/brush.h>
 #include <wx/dcmemory.h>
@@ -130,7 +130,7 @@ public:
               const wxString & title, const wxPoint & pos);
    virtual ~ FreqWindow();
 
-   virtual bool Show( bool show = true );
+   bool Show( bool show = true ) override;
 
 private:
    void GetAudio();

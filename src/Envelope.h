@@ -98,17 +98,17 @@ class Envelope final : public XMLTagHandler {
 #if LEGACY_PROJECT_FILE_SUPPORT
    // File I/O
 
-   virtual bool Load(wxTextFile * in, DirManager * dirManager);
-   virtual bool Save(wxTextFile * out, bool overwrite);
+   bool Load(wxTextFile * in, DirManager * dirManager) override;
+   bool Save(wxTextFile * out, bool overwrite) override;
 #endif
    // Newfangled XML file I/O
-   virtual bool HandleXMLTag(const wxChar *tag, const wxChar **attrs);
-   virtual XMLTagHandler *HandleXMLChild(const wxChar *tag);
-   virtual void WriteXML(XMLWriter &xmlFile) const;
+   bool HandleXMLTag(const wxChar *tag, const wxChar **attrs) override;
+   XMLTagHandler *HandleXMLChild(const wxChar *tag) override;
+   void WriteXML(XMLWriter &xmlFile) const /* not override */;
 
    void DrawPoints(wxDC & dc, const wxRect & r, const ZoomInfo &zoomInfo,
              bool dB, double dBRange,
-             float zoomMin, float zoomMax);
+             float zoomMin, float zoomMax) const;
 
    // Event Handlers
    // Each ofthese returns true if parents needs to be redrawn
@@ -149,16 +149,16 @@ class Envelope final : public XMLTagHandler {
    void GetValues
       (double *buffer, int bufferLen, int leftOffset, const ZoomInfo &zoomInfo) const;
 
-   int NumberOfPointsAfter(double t);
-   double NextPointAfter(double t);
+   int NumberOfPointsAfter(double t) const;
+   double NextPointAfter(double t) const;
 
-   double Average( double t0, double t1 );
-   double AverageOfInverse( double t0, double t1 );
-   double Integral( double t0, double t1 );
-   double IntegralOfInverse( double t0, double t1 );
-   double SolveIntegralOfInverse( double t0, double area);
+   double Average( double t0, double t1 ) const;
+   double AverageOfInverse( double t0, double t1 ) const;
+   double Integral( double t0, double t1 ) const;
+   double IntegralOfInverse( double t0, double t1 ) const;
+   double SolveIntegralOfInverse( double t0, double area) const;
 
-   void print();
+   void print() const;
    void testMe();
 
    bool IsDirty() const;
